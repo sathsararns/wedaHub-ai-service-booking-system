@@ -1,46 +1,21 @@
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 
 from app.core.llm import llm
-from app.models.recommendation import RecommendationResult
 
-prompt = ChatPromptTemplate.from_messages(
-[
-(
-"system",
-"""
-You are a Recommendation Agent.
+from app.prompts.recommendation_prompt import recommendation_prompt
 
-Choose the best providers.
+from app.models.recommendation import RecommendationResponse
 
-Consider
-
-- Rating
-- Experience
-- Price
-- Distance
-
-Recommend only the best providers.
-
-Return structured output.
-"""
-),
-
-(
-"human",
-"""
-Customer Requirements
-
-{requirements}
-
-Providers
-
-{providers}
-"""
+parser = PydanticOutputParser(
+    pydantic_object=RecommendationResponse
 )
 
-]
-)
+recommendation_agent = (
 
-recommendation_agent = prompt | llm.with_structured_output(
-    RecommendationResult
+    recommendation_prompt
+
+    | llm
+
+    | parser
+
 )
