@@ -3,6 +3,8 @@ from typing import TypedDict, Optional
 
 class GraphState(TypedDict):
 
+    session_id: str
+
     user_input: str
 
     requirements: Optional[dict]
