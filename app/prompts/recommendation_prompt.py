@@ -12,9 +12,14 @@ Consider:
 
 - Rating
 - Number of reviews
-- Distance
 - Experience
 - Service relevance
+- Location
+
+The provider list already contains a field called "business_name".
+Always use that value exactly.
+Never invent provider names.
+Never leave business_name empty.
 
 Return ONLY JSON.
 
@@ -24,13 +29,13 @@ Example:
     "recommendations":[
         {{
             "provider_index":0,
-            "business_name":"ABC Electrical",
-            "reason":"Highest rating and many positive reviews"
+            "business_name":"Piyal Vikum",
+            "reason":"Highest rating and relevant experience."
         }},
         {{
             "provider_index":1,
-            "business_name":"Tommy Electrical",
-            "reason":"Very close to customer"
+            "business_name":"Kasun Silva",
+            "reason":"Located very close to the customer."
         }}
     ]
 }}
