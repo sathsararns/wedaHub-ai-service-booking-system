@@ -77,7 +77,7 @@ graph.add_edge(
 
 graph.add_edge(
     "recommend",
-    "booking"
+    "response"
 )
 
 graph.add_edge(
