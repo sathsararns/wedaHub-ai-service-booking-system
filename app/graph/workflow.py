@@ -8,11 +8,8 @@ from app.graph.planner_node import planner_node
 from app.graph.search_node import search_node
 from app.graph.recommendation_node import recommendation_node
 from app.graph.response_node import response_node
-from app.graph.booking_node import booking_node
 from app.graph.booking_agent_node import booking_agent_node
-
 from app.graph.booking_node import booking_node
-
 from app.graph.router import planner_router
 
 graph = StateGraph(GraphState)
@@ -39,6 +36,11 @@ graph.add_node(
 )
 
 graph.add_node(
+    "booking_agent",
+    booking_agent_node
+)
+
+graph.add_node(
     "booking",
     booking_node
 )
@@ -51,15 +53,21 @@ graph.add_node(
 # Set entry point
 graph.set_entry_point("requirements")
 
-# Add edges - Sequential flow
+# Add edges
 graph.add_edge(
     "requirements",
     "planner"
 )
 
-graph.add_edge(
+# Conditional edge from planner based on router logic
+graph.add_conditional_edges(
     "planner",
-    "search"
+    planner_router,
+    {
+        "search": "search",
+        "booking_agent": "booking_agent",
+        "response": "response"
+    }
 )
 
 graph.add_edge(
@@ -73,6 +81,11 @@ graph.add_edge(
 )
 
 graph.add_edge(
+    "booking_agent",
+    "booking"
+)
+
+graph.add_edge(
     "booking",
     "response"
 )
@@ -81,14 +94,6 @@ graph.add_edge(
     "response",
     END
 )
-graph.add_node(
-    "booking_agent",
-    booking_agent_node
-)
 
-graph.add_node(
-    "booking",
-    booking_node
-)
 # Compile the graph
 travel_graph = graph.compile()
