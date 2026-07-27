@@ -6,12 +6,13 @@ from app.state import GraphState
 from app.graph.requirement_node import requirement_node
 from app.graph.planner_node import planner_node
 from app.graph.search_node import search_node
-from app.graph.recommendation_node import recommendation_node
+from app.graph.recommendation_node import recommendation_node  # ✅ Correct import
 from app.graph.response_node import response_node
 
 
 graph = StateGraph(GraphState)
 
+# Add nodes
 graph.add_node(
     "requirements",
     requirement_node
@@ -28,8 +29,8 @@ graph.add_node(
 )
 
 graph.add_node(
-    "recommendation",
-    recommendation_node
+    "recommend",  # ✅ Node name changed to "recommend"
+    recommendation_node  # ✅ Uses the imported function
 )
 
 graph.add_node(
@@ -37,8 +38,10 @@ graph.add_node(
     response_node
 )
 
+# Set entry point
 graph.set_entry_point("requirements")
 
+# Add edges
 graph.add_edge(
     "requirements",
     "planner"
@@ -51,11 +54,11 @@ graph.add_edge(
 
 graph.add_edge(
     "search",
-    "recommendation"
+    "recommend"  # ✅ Edge from search → recommend
 )
 
 graph.add_edge(
-    "recommendation",
+    "recommend",  # ✅ Edge from recommend → response
     "response"
 )
 
@@ -64,4 +67,5 @@ graph.add_edge(
     END
 )
 
+# Compile the graph
 travel_graph = graph.compile()
