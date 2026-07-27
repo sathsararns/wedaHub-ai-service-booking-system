@@ -9,6 +9,11 @@ from app.graph.search_node import search_node
 from app.graph.recommendation_node import recommendation_node
 from app.graph.response_node import response_node
 from app.graph.booking_node import booking_node
+from app.graph.booking_agent_node import booking_agent_node
+
+from app.graph.booking_node import booking_node
+
+from app.graph.router import planner_router
 
 graph = StateGraph(GraphState)
 
@@ -76,6 +81,14 @@ graph.add_edge(
     "response",
     END
 )
+graph.add_node(
+    "booking_agent",
+    booking_agent_node
+)
 
+graph.add_node(
+    "booking",
+    booking_node
+)
 # Compile the graph
 travel_graph = graph.compile()
