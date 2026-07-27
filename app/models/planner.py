@@ -1,8 +1,11 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
 
-class PlannerDecision(BaseModel):
+class Planner(BaseModel):
+
     next_action: str
-    missing_fields: Optional[List[str]] = None
-    message: Optional[str] = None
+
+    missing_fields: Optional[list] = None
+
+    message: str
