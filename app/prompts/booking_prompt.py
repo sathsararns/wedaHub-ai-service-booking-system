@@ -16,13 +16,13 @@ Extract:
 
 Return ONLY JSON.
 
-Example
+Example:
 
-{
-    "provider_index":0,
-    "date":"tomorrow",
-    "time":"10 AM"
-}
+{{
+    "provider_index": 0,
+    "date": "tomorrow",
+    "time": "10 AM"
+}}
 """
     ),
     ("human", "{input}")
