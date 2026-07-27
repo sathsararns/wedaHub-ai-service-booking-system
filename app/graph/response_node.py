@@ -1,16 +1,16 @@
 def response_node(state):
 
-    recommendations = state["recommendations"]["recommendations"]
+    text = "I found these providers for you:\n\n"
 
-    message = ""
+    for i, provider in enumerate(state["recommendations"]["recommendations"], start=1):
 
-    for provider in recommendations:
-
-        message += (
-            f"Provider : {provider['business_name']}\n"
-            f"Reason : {provider['reason']}\n\n"
+        text += (
+            f"{i}. {provider['business_name']}\n"
+            f"Reason: {provider['reason']}\n\n"
         )
 
-    state["response"] = message
+    text += "Reply with:\nBook 1\nor\nBook ABC Electrical"
+
+    state["response"] = text
 
     return state
