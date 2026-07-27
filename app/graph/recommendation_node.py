@@ -1,17 +1,21 @@
-from app.agents.requirements_agent import requirements_agent
+from app.agents.recommendation_agent import recommendation_agent
 
 
-def requirement_node(state):
+def recommendation_node(state):
 
-    result = requirements_agent.invoke(
+    print("===== PROVIDERS BEFORE AI =====")
+    print(state["providers"])
+
+    result = recommendation_agent.invoke(
         {
-            "input": state["user_input"]
+            "requirements": str(state["requirements"]),
+            "providers": str(state["providers"])
         }
     )
 
-    print("===== REQUIREMENTS =====")
+    print("===== AI RECOMMENDATION =====")
     print(result)
 
-    state["requirements"] = result.model_dump()
+    state["recommendations"] = result.model_dump()
 
     return state

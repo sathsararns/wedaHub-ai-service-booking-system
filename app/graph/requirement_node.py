@@ -9,6 +9,9 @@ def requirement_node(state):
         }
     )
 
+    print("===== REQUIREMENTS =====")
+    print(result)
+
     state["requirements"] = result.model_dump()
 
     return state
