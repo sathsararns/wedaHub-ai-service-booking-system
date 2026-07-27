@@ -1,19 +1,11 @@
-from typing import Dict
-
-
-memory = {}
-
-
-def save_state(session_id: str, state: Dict):
-
-    memory[session_id] = state
+conversation_memory = {}
 
 
 def load_state(session_id: str):
 
-    return memory.get(session_id)
+    return conversation_memory.get(session_id)
 
 
-def clear_state(session_id: str):
+def save_state(session_id: str, state):
 
-    memory.pop(session_id, None)
+    conversation_memory[session_id] = state

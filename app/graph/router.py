@@ -5,7 +5,8 @@ def planner_router(state):
     if action == "search_services":
         return "search"
 
-    if action == "book_provider":
+    elif action == "book_provider":
         return "booking_agent"
 
-    return "response"
+    else:
+        return "response"

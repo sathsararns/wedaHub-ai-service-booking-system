@@ -70,6 +70,7 @@ graph.add_conditional_edges(
     }
 )
 
+# Required edges for search flow
 graph.add_edge(
     "search",
     "recommend"
@@ -80,6 +81,7 @@ graph.add_edge(
     "response"
 )
 
+# Required edges for booking flow
 graph.add_edge(
     "booking_agent",
     "booking"
@@ -90,6 +92,7 @@ graph.add_edge(
     "response"
 )
 
+# Final edge to end
 graph.add_edge(
     "response",
     END

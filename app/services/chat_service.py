@@ -19,7 +19,7 @@ def chat(session_id: str, message: str):
 
     else:
 
-        state = old_state
+        state = old_state.copy()
 
         state["user_input"] = message
 
