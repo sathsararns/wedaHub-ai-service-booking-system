@@ -15,4 +15,6 @@ def booking_executor(requirements, provider):
 
     }
 
-    return BookingTool.create_booking(booking)
+    return BookingTool.create_booking(
+        booking
+    )

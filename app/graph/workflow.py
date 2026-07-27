@@ -66,6 +66,10 @@ graph.add_edge(
     "response",
     END
 )
+graph.add_node("booking", booking_node)
 
+graph.add_edge("recommend", "booking")
+
+graph.add_edge("booking", "response")
 # Compile the graph
 travel_graph = graph.compile()

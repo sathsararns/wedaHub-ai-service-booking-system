@@ -11,6 +11,12 @@ class GraphState(TypedDict):
 
     providers: Optional[list]
 
-    recommendations: Optional[dict]
+    recommendations: Optional[list]
+
+    booking: Optional[dict]
+
+    booking_result: Optional[dict]
+
+    booking_error: Optional[str]
 
     response: Optional[str]
