@@ -1,16 +1,17 @@
-from app.agents.recommendation_agent import recommendation_agent
+from app.agents.requirements_agent import requirements_agent
 
 
-def recommendation_node(state):
+def requirement_node(state):
 
-    result = recommendation_agent.invoke({
+    result = requirements_agent.invoke(
+        {
+            "input": state["user_input"]
+        }
+    )
 
-        "requirements": str(state["requirements"]),
+    print("===== REQUIREMENTS =====")
+    print(result)
 
-        "providers": str(state["providers"])
-
-    })
-
-    state["recommendations"] = result.model_dump()
+    state["requirements"] = result.model_dump()
 
     return state

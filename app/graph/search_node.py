@@ -4,24 +4,18 @@ from app.models.requirements import Requirement
 
 def search_node(state):
 
-    requirement = Requirement(**state["requirements"])
+    requirement = Requirement(
+        **state["requirements"]
+    )
+
+    print("===== SEARCH INPUT =====")
+    print(requirement)
 
     providers = search_agent(requirement)
 
-    cleaned = []
+    print("===== PROVIDERS =====")
+    print(providers)
 
-    for p in providers:
-        cleaned.append({
-            "id": str(p["_id"]),
-            "business_name": f"{p['firstName']} {p['lastName']}",
-            "category": p.get("category"),
-            "rating": p.get("rating", 0),
-            "reviews": p.get("reviews", 0),
-            "district": p.get("district"),
-            "city": p.get("city"),
-            "description": p.get("description", "")
-        })
-
-    state["providers"] = cleaned
+    state["providers"] = providers
 
     return state

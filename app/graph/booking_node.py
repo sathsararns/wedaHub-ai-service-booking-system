@@ -1,4 +1,4 @@
-from app.agents.booking_executor import booking_executor
+from app.services.booking_service import create_booking
 
 
 def booking_node(state):
@@ -7,14 +7,24 @@ def booking_node(state):
 
     provider = state["providers"][booking["provider_index"]]
 
-    result = booking_executor(
+    booking_data = {
 
-        state["requirements"],
+        "providerId": provider["_id"],
 
-        provider
+        "date": booking["date"],
 
-    )
+        "time": booking["time"]
 
-    state["booking_result"] = result
+    }
+
+    try:
+
+        result = create_booking(booking_data)
+
+        state["booking_result"] = result
+
+    except Exception as e:
+
+        state["booking_error"] = str(e)
 
     return state
