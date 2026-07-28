@@ -11,11 +11,10 @@ def response_node(state):
     if booking:
         # Handle successful booking
         state["response"] = (
-            "✅ Booking created successfully!\n\n"
-            f"Booking ID: {booking['_id']}\n"
-            f"Provider: {booking.get('provider_name', 'N/A')}\n"
-            f"Date/Time: {booking.get('datetime', 'N/A')}\n\n"
-            "Thank you for using our service!"
+            "✅ Booking Created Successfully\n\n"
+            f"Booking ID : {booking['_id']}\n"
+            f"Status : {booking['status']}\n"
+            f"Provider ID : {booking['providerId']}"
         )
         return state
     

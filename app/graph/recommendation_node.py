@@ -8,8 +8,8 @@ def recommendation_node(state):
 
     result = recommendation_agent.invoke(
         {
-            "requirements": str(state["requirements"]),
-            "providers": str(state["providers"])
+            "requirements": state["requirements"],
+            "providers": state["providers"]
         }
     )
 
@@ -17,5 +17,27 @@ def recommendation_node(state):
     print(result)
 
     state["recommendations"] = result.model_dump()
+
+    # save recommendation list for future booking
+    state["recommended_providers"] = []
+
+    for item in result.recommendations:
+
+        provider = state["providers"][item.provider_index]
+
+        state["recommended_providers"].append(
+            {
+                "provider_index": item.provider_index,
+                "provider_id": provider["_id"],
+                "provider_name": (
+                    provider.get("businessName")
+                    or (
+                        provider.get("firstName", "")
+                        + " "
+                        + provider.get("lastName", "")
+                    ).strip()
+                )
+            }
+        )
 
     return state

@@ -13,7 +13,10 @@ class GraphState(TypedDict):
 
     providers: Optional[list]
 
-    recommendations: Optional[list]
+    recommendations: Optional[dict]
+
+    # <-- මේක GraphState එක ඇතුළේ තියෙන්න ඕනේ
+    recommended_providers: Optional[list]
 
     booking: Optional[dict]
 

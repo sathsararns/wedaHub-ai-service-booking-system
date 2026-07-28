@@ -7,9 +7,13 @@ class BookingTool:
 
     @staticmethod
     def create_booking(
+
         provider_id,
+
         date,
+
         time,
+
     ):
 
         response = requests.post(
@@ -19,12 +23,14 @@ class BookingTool:
             json={
 
                 "providerId": provider_id,
+
                 "date": date,
+
                 "time": time,
 
             },
 
-            timeout=20
+            timeout=20,
 
         )
 

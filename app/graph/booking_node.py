@@ -1,20 +1,25 @@
-from app.services.booking_service import create_booking
+from app.tools.booking_tool import BookingTool
 
 
 def booking_node(state):
 
-    booking = state.get("booking")
+    booking = state["booking"]
+    
+    # Get recommendations from state
+    recommendations = state["recommended_providers"]
+    
+    # Get provider using provider_index from booking
+    provider = recommendations[booking["provider_index"]]
+    
+    provider_id = provider["provider_id"]
 
-    if booking is None:
-        return state
+    result = BookingTool.create_booking(
 
-    provider = state["providers"][booking.provider_index]
+        provider_id=provider_id,
 
-    result = create_booking(
+        date=booking["date"],
 
-        provider,
-
-        booking,
+        time=booking["time"]
 
     )
 
