@@ -5,8 +5,6 @@ from app.memory.conversation_memory import (
     save_state,
 )
 
-from app.agents.booking_agent import booking_agent
-
 
 def chat(session_id: str, message: str):
 
@@ -22,22 +20,10 @@ def chat(session_id: str, message: str):
     else:
 
         state = old_state
-
         state["user_input"] = message
 
-    # -----------------------------
-    # Detect booking intent
-    # -----------------------------
-
-    if message.lower().startswith("book"):
-
-        booking = booking_agent.invoke(
-            {
-                "input": message
-            }
-        )
-
-        state["booking"] = booking.model_dump()
+    # Booking agent එක මෙතන call කරන්න එපා.
+    # booking_agent_node එක graph එක ඇතුළේ automatically run වෙනවා.
 
     print("===== STATE BEFORE GRAPH =====")
     print(state)
