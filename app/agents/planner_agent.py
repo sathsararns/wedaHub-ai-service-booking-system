@@ -38,9 +38,9 @@ Show booking details
 - Location missing
 
 Return structured output only.
-""",
+"""
         ),
-        ("human", "{requirements}"),
+        ("human", "{requirements}")
     ]
 )
 
@@ -49,9 +49,9 @@ planner_llm = prompt | llm.with_structured_output(
 )
 
 
-def planner_agent(state):
+def planner_agent(state: dict):
 
-    user = state["user_input"].lower()
+    user = state["user_input"].lower().strip()
 
     # -------------------------
     # Booking Status
@@ -59,7 +59,7 @@ def planner_agent(state):
 
     if (
         "booking status" in user
-        or "status" == user.strip()
+        or user == "status"
         or "check booking" in user
         or "show booking" in user
         or "my booking" in user
@@ -68,7 +68,7 @@ def planner_agent(state):
         return {
             "next_action": "booking_status",
             "missing_fields": None,
-            "message": "Checking booking status.",
+            "message": "Checking booking status."
         }
 
     # -------------------------
@@ -80,18 +80,19 @@ def planner_agent(state):
         return {
             "next_action": "book_provider",
             "missing_fields": None,
-            "message": "Booking selected provider.",
+            "message": "Booking selected provider."
         }
 
     # -------------------------
-    # Normal planner
+    # Search
     # -------------------------
 
-    return planner_llm.invoke(
+    result = planner_llm.invoke(
         {
-            "requirements": state.get(
-                "requirements",
-                {},
+            "requirements": str(
+                state.get("requirements", {})
             )
         }
     )
+
+    return result.model_dump()

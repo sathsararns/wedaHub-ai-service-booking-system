@@ -3,21 +3,14 @@ from app.agents.planner_agent import planner_agent
 
 def planner_node(state):
 
-    message = state["user_input"].lower().strip()
+    result = planner_agent(state)
 
-    # User typed "Book ..."
-    if message.startswith("book"):
-        state["planner"] = {
-            "next_action": "book_provider"
-        }
-        return state
+    # PlannerDecision model එකක් නම්
+    if hasattr(result, "model_dump"):
+        state["planner"] = result.model_dump()
 
-    result = planner_agent.invoke(
-        {
-            "requirements": str(state["requirements"])
-        }
-    )
-
-    state["planner"] = result.model_dump()
+    # dict එකක් නම්
+    else:
+        state["planner"] = result
 
     return state

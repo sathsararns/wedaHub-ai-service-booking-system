@@ -3,7 +3,11 @@ from app.tools.booking_tool import BookingTool
 
 def booking_node(state):
 
-    booking = state["booking"]
+    booking = state.get("booking")
+
+    if not booking:
+        state["response"] = "❌ Booking information not found."
+        return state
 
     result = BookingTool.create_booking(
         provider_id=booking["provider_id"],

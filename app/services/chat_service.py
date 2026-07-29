@@ -9,8 +9,7 @@ def chat(session_id, user_input):
 
     state = memory.get(session_id)
 
-    if state is None:
-
+    if not state:
         state = {}
 
     state["session_id"] = session_id
@@ -21,9 +20,6 @@ def chat(session_id, user_input):
 
     result = graph.invoke(state)
 
-    memory.save(
-        session_id,
-        result,
-    )
+    memory.save(session_id, result)
 
     return result["response"]
