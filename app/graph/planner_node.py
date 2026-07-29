@@ -3,12 +3,13 @@ from app.agents.planner_agent import planner_agent
 
 def planner_node(state):
 
-    if state.get("booking"):
+    message = state["user_input"].lower().strip()
 
+    # User typed "Book ..."
+    if message.startswith("book"):
         state["planner"] = {
             "next_action": "book_provider"
         }
-
         return state
 
     result = planner_agent.invoke(

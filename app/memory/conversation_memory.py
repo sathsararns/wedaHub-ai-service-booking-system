@@ -1,11 +1,20 @@
-conversation_memory = {}
+from collections import defaultdict
 
 
-def load_state(session_id: str):
+class ConversationMemory:
 
-    return conversation_memory.get(session_id)
+    def __init__(self):
+        self.sessions = defaultdict(dict)
 
+    def get(self, session_id: str):
 
-def save_state(session_id: str, state):
+        return self.sessions.get(session_id, {})
 
-    conversation_memory[session_id] = state
+    def save(self, session_id: str, state: dict):
+
+        self.sessions[session_id] = state
+
+    def clear(self, session_id: str):
+
+        if session_id in self.sessions:
+            del self.sessions[session_id]
