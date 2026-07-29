@@ -1,12 +1,19 @@
-def planner_router(state):
+def router(state):
+    """
+    Decide which node to execute after planner.
+    """
 
-    action = state["planner"]["next_action"]
+    planner = state.get("planner", {})
+
+    action = planner.get("next_action")
 
     if action == "search_services":
         return "search"
 
     elif action == "book_provider":
-        return "booking_agent"
+        return "booking"
 
-    else:
-        return "response"
+    elif action == "booking_status":
+        return "booking_status"
+
+    return "response"

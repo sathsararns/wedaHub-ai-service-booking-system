@@ -1,35 +1,29 @@
-from app.graph.workflow import travel_graph
-
-from app.memory.conversation_memory import (
-    load_state,
-    save_state,
-)
+from app.memory.conversation_memory import ConversationMemory
+from app.graph.workflow import graph
 
 
-def chat(session_id: str, message: str):
+memory = ConversationMemory()
 
-    old_state = load_state(session_id)
 
-    if old_state is None:
+def chat(session_id, user_input):
 
-        state = {
-            "session_id": session_id,
-            "user_input": message,
-        }
+    state = memory.get(session_id)
 
-    else:
+    if state is None:
 
-        state = old_state
-        state["user_input"] = message
+        state = {}
 
-    # Booking agent එක මෙතන call කරන්න එපා.
-    # booking_agent_node එක graph එක ඇතුළේ automatically run වෙනවා.
+    state["session_id"] = session_id
+    state["user_input"] = user_input
 
     print("===== STATE BEFORE GRAPH =====")
     print(state)
 
-    result = travel_graph.invoke(state)
+    result = graph.invoke(state)
 
-    save_state(session_id, result)
+    memory.save(
+        session_id,
+        result,
+    )
 
     return result["response"]
