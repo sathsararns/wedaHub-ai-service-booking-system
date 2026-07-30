@@ -6,4 +6,4 @@ class Requirement(BaseModel):
     service: str
     location: Optional[str] = None
     date: Optional[str] = None
-    time: Optional[str] = None
+    description: Optional[str] = None

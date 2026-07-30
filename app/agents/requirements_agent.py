@@ -12,7 +12,16 @@ You are a Requirements Agent.
 
 Extract the booking requirements.
 
-Return structured data.
+Fields to extract:
+
+- service
+- location
+- date
+- description
+
+If any field is missing, return null for that field.
+
+Return structured data only.
 """
 ),
 ("human","{input}")

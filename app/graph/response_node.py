@@ -27,8 +27,8 @@ def response_node(state):
             f"Booking ID : {booking['_id']}\n"
             f"Provider : {provider_name}\n"
             f"Service : {booking['serviceName']}\n"
+            f"Description : {booking.get('description', '-')}\n"
             f"Date : {booking['date'][:10]}\n"
-            f"Time : {booking['time']}\n"
             f"Status : {booking['status']}"
         )
 
