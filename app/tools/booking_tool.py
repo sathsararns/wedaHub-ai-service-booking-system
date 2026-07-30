@@ -18,16 +18,16 @@ class BookingTool:
             return datetime.now().strftime("%Y-%m-%d")
 
         if value == "tomorrow":
-            return (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+            return (
+                datetime.now() + timedelta(days=1)
+            ).strftime("%Y-%m-%d")
 
-        # already yyyy-mm-dd
         try:
             datetime.strptime(value, "%Y-%m-%d")
             return value
         except:
             pass
 
-        # fallback
         try:
             return datetime.fromisoformat(value).strftime("%Y-%m-%d")
         except:
@@ -38,44 +38,64 @@ class BookingTool:
         provider_id,
         service,
         date,
-        time,
+        description,
         customer_id=None,
     ):
 
         date = BookingTool.normalize_date(date)
 
         print("===== BOOKING REQUEST =====")
+
         print({
+
             "providerId": provider_id,
+
             "customerId": customer_id,
+
             "service": service,
+
+            "description": description,
+
             "date": date,
-            "time": time,
+
         })
 
         payload = {
+
             "providerId": provider_id,
+
             "customerId": customer_id,
+
             "service": service,
+
+            "description": description,
+
             "date": date,
-            "time": time,
+
         }
 
         url = f"{EXPRESS_API}/bookings/ai"
 
         print("===== URL =====")
+
         print(url)
 
         response = requests.post(
+
             url,
+
             json=payload,
+
             timeout=20,
+
         )
 
         print("===== STATUS =====")
+
         print(response.status_code)
 
         print("===== RESPONSE =====")
+
         print(response.text)
 
         response.raise_for_status()

@@ -17,17 +17,18 @@ Book 2 -> provider_index = 1
 Book 3 -> provider_index = 2
 Book 4 -> provider_index = 3
 
-If the user does not provide date or time, return empty strings.
+If the user does not provide the date or job description,
+return empty strings.
 
 Return ONLY valid JSON.
 
 Example:
 
-{{
+{
     "provider_index": 0,
     "date": "",
-    "time": ""
-}}
+    "description": ""
+}
 """
     ),
     ("human", "{input}")

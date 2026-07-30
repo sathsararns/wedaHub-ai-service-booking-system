@@ -8,10 +8,12 @@ def create_booking(
 
     return BookingTool.create_booking(
 
-        provider["_id"],
+        provider_id=provider["_id"],
 
-        booking.date,
+        service=provider["category"],
 
-        booking.time,
+        date=booking.date,
+
+        description=booking.description,
 
     )

@@ -7,4 +7,4 @@ class BookingRequest(BaseModel):
 
     date: str
 
-    time: str
+    description: str
