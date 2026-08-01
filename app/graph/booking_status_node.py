@@ -65,7 +65,7 @@ def booking_status_node(state):
         f"Provider : {provider_name}\n"
         f"Service : {booking.get('serviceName')}\n"
         f"Date : {booking_date}\n"
-        f"Time : {booking.get('time')}\n"
+        f"Description : {booking.get('description')}\n"
         f"Status : {booking.get('status')}"
     )
 

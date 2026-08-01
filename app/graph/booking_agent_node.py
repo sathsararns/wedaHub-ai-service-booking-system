@@ -9,17 +9,29 @@ def booking_agent_node(state):
         }
     ).model_dump()
 
-    # Check if date and time are missing from booking
-    if not booking["date"]:
-        booking["date"] = state["requirements"]["date"]
+    requirements = state.get("requirements", {})
 
-    if not booking["time"]:
-        booking["time"] = state["requirements"]["time"]
+    # Fill missing date
+    if not booking.get("date"):
+        booking["date"] = requirements.get("date", "")
 
-    # Get provider details from recommended providers
-    provider = state["recommended_providers"][
-        booking["provider_index"]
-    ]
+    # Fill missing description
+    if not booking.get("description"):
+        booking["description"] = requirements.get("description", "")
+
+    providers = state.get("recommended_providers", [])
+
+    index = booking.get("provider_index", -1)
+
+    # Validate provider index
+    if index < 0 or index >= len(providers):
+        state["response"] = (
+            "❌ Invalid provider number.\n\n"
+            "Please select one of the providers shown."
+        )
+        return state
+
+    provider = providers[index]
 
     booking["provider_id"] = provider["provider_id"]
     booking["provider_name"] = provider["provider_name"]

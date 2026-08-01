@@ -3,7 +3,11 @@ from typing import Optional
 
 
 class Requirement(BaseModel):
-    service: str
+
+    service: str = ""
+
     location: Optional[str] = None
+
     date: Optional[str] = None
+
     description: Optional[str] = None

@@ -1,20 +1,12 @@
 from app.tools.booking_tool import BookingTool
 
 
-def booking_executor(requirements, provider):
-
-    booking = {
-
-        "providerId": provider["_id"],
-
-        "service": requirements["service"],
-
-        "date": requirements["date"],
-
-        "time": requirements["time"]
-
-    }
+def booking_executor(requirements, provider, customer_id=None):
 
     return BookingTool.create_booking(
-        booking
+        provider["_id"],
+        requirements["service"],
+        requirements["date"],
+        requirements["description"],
+        customer_id,
     )
