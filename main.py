@@ -1,25 +1,16 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.chat import router as chat_router
 
 app = FastAPI(title="WedaHub AI Service")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class ChatRequest(BaseModel):
-    message: str
-    customer_id: str | None = None
-
-
-@app.get("/")
-async def home():
-    return {
-        "status": "running"
-    }
-
-
-@app.post("/chat")
-async def chat(request: ChatRequest):
-
-    return {
-        "success": True,
-        "response": f"You said: {request.message}"
-    }
+app.include_router(chat_router)

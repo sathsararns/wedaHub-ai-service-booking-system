@@ -3,7 +3,6 @@ from langchain_core.prompts import ChatPromptTemplate
 from app.core.llm import llm
 from app.models.planner import PlannerDecision
 
-
 prompt = ChatPromptTemplate.from_messages(
     [
         (
@@ -11,36 +10,17 @@ prompt = ChatPromptTemplate.from_messages(
             """
 You are the Planner Agent.
 
-Your job is to decide the next step.
+Return ONLY structured output.
 
 Available actions:
 
 1. search_services
-- User wants to search providers.
-
 2. book_provider
-- User says:
-Book 1
-Book 2
-Book Kasun
-Book Piyal
-
 3. booking_status
-- User asks:
-What's my booking status?
-Booking status
-Status
-Check booking
-Show booking details
-
 4. ask_more_information
-- Service missing
-- Location missing
-
-Return structured output only.
-"""
+""",
         ),
-        ("human", "{requirements}")
+        ("human", "{requirements}"),
     ]
 )
 
@@ -52,10 +32,11 @@ planner_llm = prompt | llm.with_structured_output(
 def planner_agent(state: dict):
 
     user = state["user_input"].lower().strip()
+    requirements = state.get("requirements") or {}
 
-    # -------------------------
+    # ==========================================
     # Booking Status
-    # -------------------------
+    # ==========================================
 
     if (
         "booking status" in user
@@ -64,34 +45,63 @@ def planner_agent(state: dict):
         or "show booking" in user
         or "my booking" in user
     ):
-
         return {
             "next_action": "booking_status",
             "missing_fields": None,
-            "message": "Checking booking status."
+            "message": "Checking booking status.",
         }
 
-    # -------------------------
+    # ==========================================
     # Booking
-    # -------------------------
+    # ==========================================
 
     if user.startswith("book"):
-
         return {
             "next_action": "book_provider",
             "missing_fields": None,
-            "message": "Booking selected provider."
+            "message": "Booking selected provider.",
         }
 
-    # -------------------------
-    # Search
-    # -------------------------
+    # ==========================================
+    # Search (deterministic)
+    # ==========================================
+
+    if (
+        requirements.get("service")
+        and requirements.get("location")
+    ):
+        return {
+            "next_action": "search_services",
+            "missing_fields": None,
+            "message": "Searching providers.",
+        }
+
+    # ==========================================
+    # Missing Information
+    # ==========================================
+
+    if not requirements.get("service") or not requirements.get("location"):
+        missing = []
+
+        if not requirements.get("service"):
+            missing.append("service")
+
+        if not requirements.get("location"):
+            missing.append("location")
+
+        return {
+            "next_action": "ask_more_information",
+            "missing_fields": missing,
+            "message": "Need more information.",
+        }
+
+    # ==========================================
+    # Fallback to LLM
+    # ==========================================
 
     result = planner_llm.invoke(
         {
-            "requirements": str(
-                state.get("requirements", {})
-            )
+            "requirements": str(requirements)
         }
     )
 

@@ -3,13 +3,23 @@ from app.agents.recommendation_agent import recommendation_agent
 
 def recommendation_node(state):
 
+    providers = state.get("providers") or []
+
     print("===== PROVIDERS BEFORE AI =====")
-    print(state["providers"])
+    print(providers)
+
+    # No providers -> skip AI
+    if not providers:
+        state["recommendations"] = {
+            "recommendations": []
+        }
+        state["recommended_providers"] = []
+        return state
 
     result = recommendation_agent.invoke(
         {
             "requirements": state["requirements"],
-            "providers": state["providers"]
+            "providers": providers,
         }
     )
 
@@ -18,17 +28,19 @@ def recommendation_node(state):
 
     state["recommendations"] = result.model_dump()
 
-    # save recommendation list for future booking
     state["recommended_providers"] = []
 
     for item in result.recommendations:
 
-        provider = state["providers"][item.provider_index]
+        if item.provider_index >= len(providers):
+            continue
+
+        provider = providers[item.provider_index]
 
         state["recommended_providers"].append(
             {
                 "provider_index": item.provider_index,
-                "provider_id": provider["_id"],
+                "provider_id": provider.get("_id"),
                 "provider_name": (
                     provider.get("businessName")
                     or (
@@ -36,7 +48,7 @@ def recommendation_node(state):
                         + " "
                         + provider.get("lastName", "")
                     ).strip()
-                )
+                ),
             }
         )
 
