@@ -11,31 +11,61 @@ def booking_agent_node(state):
 
     requirements = state.get("requirements", {})
 
-    # Fill missing date
+    # -----------------------------------------
+    # Preserve previous booking values
+    # -----------------------------------------
+
     if not booking.get("date"):
-        booking["date"] = requirements.get("date", "")
+        booking["date"] = requirements.get("date")
 
-    # Fill missing description
     if not booking.get("description"):
-        booking["description"] = requirements.get("description", "")
+        booking["description"] = requirements.get("description")
 
-    providers = state.get("recommended_providers", [])
+    # -----------------------------------------
+    # Validate selected provider
+    # -----------------------------------------
 
-    index = booking.get("provider_index", -1)
+    recommended = state.get("recommended_providers", [])
 
-    # Validate provider index
-    if index < 0 or index >= len(providers):
+    selected_index = booking.get("provider_index", -1)
+
+    if selected_index < 0 or selected_index >= len(recommended):
         state["response"] = (
             "❌ Invalid provider number.\n\n"
             "Please select one of the providers shown."
         )
         return state
 
-    provider = providers[index]
+    recommendation = recommended[selected_index]
 
-    booking["provider_id"] = provider["provider_id"]
-    booking["provider_name"] = provider["provider_name"]
+    original_index = recommendation["provider_index"]
+
+    providers = state.get("providers", [])
+
+    if original_index < 0 or original_index >= len(providers):
+        state["response"] = "❌ Provider could not be found."
+        return state
+
+    provider = providers[original_index]
+
+    # -----------------------------------------
+    # Save provider
+    # -----------------------------------------
+
+    booking["provider_id"] = provider["_id"]
+    booking["provider_name"] = (
+        f"{provider['firstName']} {provider['lastName']}"
+    )
 
     state["booking"] = booking
+
+    # -----------------------------------------
+    # Keep requirements updated
+    # -----------------------------------------
+
+    requirements["date"] = booking.get("date")
+    requirements["description"] = booking.get("description")
+
+    state["requirements"] = requirements
 
     return state

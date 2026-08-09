@@ -1,9 +1,10 @@
 from typing import TypedDict, Optional
 
 
-class GraphState(TypedDict):
+class GraphState(TypedDict, total=False):
 
     session_id: str
+    customer_id: str        # <-- ADD THIS
 
     user_input: str
 
@@ -15,7 +16,6 @@ class GraphState(TypedDict):
 
     recommendations: Optional[dict]
 
-    # <-- මේක GraphState එක ඇතුළේ තියෙන්න ඕනේ
     recommended_providers: Optional[list]
 
     booking: Optional[dict]

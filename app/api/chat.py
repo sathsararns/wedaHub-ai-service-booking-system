@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-
-from app.graph.workflow import graph
+from app.services.chat_service import chat
 
 router = APIRouter()
 
@@ -11,33 +10,14 @@ class ChatRequest(BaseModel):
     customerId: str | None = None
 
 
-@router.get("/")
-async def home():
-    return {
-        "status": "running"
-    }
-
-
 @router.post("/chat")
-async def chat(request: ChatRequest):
+async def chat_api(request: ChatRequest):
 
-    state = {
-    "session_id": request.customerId or "guest",
-    "customer_id": request.customerId,   # <-- ADD THIS
-    "user_input": request.message,
-
-    "requirements": None,
-    "planner": None,
-    "providers": None,
-    "recommendations": None,
-    "recommended_providers": None,
-    "booking": None,
-    "booking_result": None,
-    "booking_error": None,
-    "response": None,
-}
-
-    result = graph.invoke(state)
+    result = chat(
+        session_id=request.customerId or "guest",
+        customer_id=request.customerId,
+        user_input=request.message,
+    )
 
     return {
         "response": result.get("response"),

@@ -1,10 +1,35 @@
 def response_node(state):
     """
-    Generates a response message with either:
-    - Recommended providers
-    - Booking confirmation
-    - Booking error
+    Generates the final response.
     """
+
+    planner = state.get("planner", {})
+
+    # =====================================================
+    # Ask More Information
+    # =====================================================
+
+    if planner.get("next_action") == "ask_more_information":
+
+        missing = planner.get("missing_fields", [])
+
+        questions = []
+
+        if "date" in missing:
+            questions.append("📅 What date would you like to book?")
+
+        if "description" in missing:
+            questions.append("📝 Please describe the work you need.")
+
+        if "service" in missing:
+            questions.append("🔧 What service do you need?")
+
+        if "location" in missing:
+            questions.append("📍 Which location do you need the service in?")
+
+        state["response"] = "\n".join(questions)
+
+        return state
 
     # =====================================================
     # Booking Success
@@ -29,7 +54,7 @@ def response_node(state):
             f"Provider : {provider_name}\n"
             f"Service : {booking.get('serviceName', '-')}\n"
             f"Description : {booking.get('description', '-')}\n"
-            f"Date : {booking.get('date', '')[:10]}\n"
+            f"Date : {str(booking.get('date', ''))[:10]}\n"
             f"Status : {booking.get('status', '-')}"
         )
 
@@ -45,8 +70,7 @@ def response_node(state):
 
         state["response"] = (
             "❌ Booking Failed!\n\n"
-            f"{booking_error}\n\n"
-            "Please try again."
+            f"{booking_error}"
         )
 
         return state
@@ -55,11 +79,10 @@ def response_node(state):
     # Recommendations
     # =====================================================
 
-    recommendation_data = state.get("recommendations") or {}
+    recommendation_data = state.get("recommendations", {})
 
     recommendations = recommendation_data.get("recommendations", [])
 
-    # Save for frontend
     state["recommended_providers"] = recommendations
 
     if not recommendations:
@@ -68,14 +91,13 @@ def response_node(state):
             "No providers found.\n\n"
             "Try changing:\n"
             "- Service\n"
-            "- Location\n"
-            "- Budget"
+            "- Location"
         )
 
         return state
 
     # =====================================================
-    # Build Response
+    # Recommendation List
     # =====================================================
 
     text = "I found these providers for you:\n\n"
@@ -88,25 +110,10 @@ def response_node(state):
             f"   Rating : {provider.get('rating', 'N/A')} ⭐\n\n"
         )
 
-    best = recommendations[0].get(
-        "business_name",
-        "Provider 1",
-    )
+    text += "📅 Reply with:\n"
 
-    text += (
-        "📅 Reply with:\n"
-        "• Book 1\n"
-        f"• Book {best}\n"
-    )
-
-    if len(recommendations) > 1:
-
-        for i, provider in enumerate(recommendations[1:], start=2):
-
-            text += (
-                f"• Book {i} - "
-                f"{provider.get('business_name', f'Provider {i}')}\n"
-            )
+    for i, provider in enumerate(recommendations, start=1):
+        text += f"• Book {i} - {provider.get('business_name')}\n"
 
     text += "\nOr reply with 'More options'."
 

@@ -4,7 +4,6 @@ def router(state):
     """
 
     planner = state.get("planner", {})
-
     action = planner.get("next_action")
 
     if action == "search_services":
@@ -15,5 +14,8 @@ def router(state):
 
     elif action == "booking_status":
         return "booking_status"
+
+    elif action == "ask_more_information":
+        return "response"
 
     return "response"

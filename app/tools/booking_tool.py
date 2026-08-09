@@ -44,60 +44,39 @@ class BookingTool:
 
         date = BookingTool.normalize_date(date)
 
-        print("===== BOOKING REQUEST =====")
-
-        print({
-
-            "providerId": provider_id,
-
-            "customerId": customer_id,
-
-            "service": service,
-
-            "description": description,
-
-            "date": date,
-
-        })
-
         payload = {
-
             "providerId": provider_id,
-
             "customerId": customer_id,
-
             "service": service,
-
             "description": description,
-
             "date": date,
-
         }
+
+        print("\n===== BOOKING REQUEST =====")
+        print(payload)
 
         url = f"{EXPRESS_API}/bookings/ai"
 
-        print("===== URL =====")
-
+        print("\n===== REQUEST URL =====")
         print(url)
 
         response = requests.post(
-
             url,
-
             json=payload,
-
             timeout=20,
-
         )
 
-        print("===== STATUS =====")
-
+        print("\n===== RESPONSE STATUS =====")
         print(response.status_code)
 
-        print("===== RESPONSE =====")
-
+        print("\n===== RESPONSE BODY =====")
         print(response.text)
 
         response.raise_for_status()
 
-        return response.json()
+        result = response.json()
+
+        print("\n===== RESPONSE JSON =====")
+        print(result)
+
+        return result

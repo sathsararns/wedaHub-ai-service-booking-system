@@ -24,9 +24,7 @@ Available actions:
     ]
 )
 
-planner_llm = prompt | llm.with_structured_output(
-    PlannerDecision
-)
+planner_llm = prompt | llm.with_structured_output(PlannerDecision)
 
 
 def planner_agent(state: dict):
@@ -34,10 +32,7 @@ def planner_agent(state: dict):
     user = state["user_input"].lower().strip()
     requirements = state.get("requirements") or {}
 
-    # ==========================================
     # Booking Status
-    # ==========================================
-
     if (
         "booking status" in user
         or user == "status"
@@ -51,10 +46,7 @@ def planner_agent(state: dict):
             "message": "Checking booking status.",
         }
 
-    # ==========================================
     # Booking
-    # ==========================================
-
     if user.startswith("book"):
         return {
             "next_action": "book_provider",
@@ -62,25 +54,17 @@ def planner_agent(state: dict):
             "message": "Booking selected provider.",
         }
 
-    # ==========================================
-    # Search (deterministic)
-    # ==========================================
-
-    if (
-        requirements.get("service")
-        and requirements.get("location")
-    ):
+    # Search
+    if requirements.get("service") and requirements.get("location"):
         return {
             "next_action": "search_services",
             "missing_fields": None,
             "message": "Searching providers.",
         }
 
-    # ==========================================
-    # Missing Information
-    # ==========================================
-
+    # Missing information
     if not requirements.get("service") or not requirements.get("location"):
+
         missing = []
 
         if not requirements.get("service"):
@@ -95,10 +79,7 @@ def planner_agent(state: dict):
             "message": "Need more information.",
         }
 
-    # ==========================================
-    # Fallback to LLM
-    # ==========================================
-
+    # LLM fallback
     result = planner_llm.invoke(
         {
             "requirements": str(requirements)

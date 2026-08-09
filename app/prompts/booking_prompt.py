@@ -24,11 +24,11 @@ Return ONLY valid JSON.
 
 Example:
 
-{
+{{
     "provider_index": 0,
     "date": "",
     "description": ""
-}
+}}
 """
     ),
     ("human", "{input}")
