@@ -3,30 +3,32 @@ from app.graph.workflow import graph
 
 
 def chat(session_id, customer_id, user_input):
-    # Get previous conversation state
+
     state = memory.get(session_id)
 
-    if not state:
+    if state is None:
         state = {}
 
-    # Update current request
+    # Always refresh request values
     state["session_id"] = session_id
     state["customer_id"] = customer_id
     state["user_input"] = user_input
 
-    print("===== STATE BEFORE GRAPH =====")
+    print("\n===== STATE BEFORE GRAPH =====")
     print(state)
 
-    # Run LangGraph workflow
     result = graph.invoke(state)
 
-    print("===== RESULT FROM GRAPH =====")
+    # Ensure IDs are never lost
+    result["session_id"] = session_id
+    result["customer_id"] = customer_id
+
+    print("\n===== RESULT FROM GRAPH =====")
     print(result)
 
-    # Save updated state
     memory.save(session_id, result)
 
-    print("===== MEMORY AFTER SAVE =====")
+    print("\n===== MEMORY AFTER SAVE =====")
     print(memory.sessions)
 
     return result
