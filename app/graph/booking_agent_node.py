@@ -3,55 +3,75 @@ from app.agents.booking_agent import booking_agent
 
 def booking_agent_node(state):
 
-    previous_booking = state.get("booking", {})
-    requirements = state.get("requirements", {})
+    previous_booking = state.get("booking") or {}
+    requirements = state.get("requirements") or {}
 
-    # -------------------------------------------------
-    # Extract booking information from LLM
-    # -------------------------------------------------
+    # -----------------------------------------
+    # Current message
+    # -----------------------------------------
 
-    booking = booking_agent.invoke(
+    user_input = state.get("user_input", "")
+
+    result = booking_agent.invoke(
         {
-            "input": state.get("user_input", ""),
+            "input": user_input,
             "current_booking": str(previous_booking),
         }
-    ).model_dump()
+    )
+
+    booking = result.model_dump()
 
     print("\n===== BOOKING AGENT OUTPUT =====")
     print(booking)
 
-    # -------------------------------------------------
-    # Preserve provider
-    # -------------------------------------------------
+    # -----------------------------------------
+    # Merge with previous booking
+    # -----------------------------------------
 
-    if booking.get("provider_index") is None:
-        booking["provider_index"] = previous_booking.get("provider_index")
+    merged_booking = previous_booking.copy()
 
-    # -------------------------------------------------
-    # Preserve date
-    # -------------------------------------------------
+    for key, value in booking.items():
+        if value not in (None, "", []):
+            merged_booking[key] = value
+
+    booking = merged_booking
+
+    # -----------------------------------------
+    # Preserve date from requirements
+    # -----------------------------------------
 
     if not booking.get("date"):
-        booking["date"] = (
-            previous_booking.get("date")
-            or requirements.get("date")
-        )
+        booking["date"] = requirements.get("date")
 
-    # -------------------------------------------------
-    # Preserve description
-    # -------------------------------------------------
+    # -----------------------------------------
+    # Preserve description from requirements
+    # -----------------------------------------
 
     if not booking.get("description"):
-        booking["description"] = (
-            previous_booking.get("description")
-            or requirements.get("description")
-        )
+        booking["description"] = requirements.get("description")
 
-    # -------------------------------------------------
-    # Validate provider selection
-    # -------------------------------------------------
+    # -----------------------------------------
+    # Need provider?
+    # -----------------------------------------
 
-    recommended = state.get("recommended_providers", [])
+    if booking.get("provider_id"):
+
+        state["booking"] = booking
+
+        requirements["date"] = booking.get("date")
+        requirements["description"] = booking.get("description")
+        state["requirements"] = requirements
+
+        print("\n===== FINAL BOOKING =====")
+        print(state["booking"])
+
+        return state
+
+    # -----------------------------------------
+    # Resolve provider from Book 1
+    # -----------------------------------------
+
+    recommended = state.get("recommended_providers") or []
 
     provider_index = booking.get("provider_index")
 
@@ -59,11 +79,7 @@ def booking_agent_node(state):
         state["booking_error"] = "Please select a provider first."
         return state
 
-    if (
-        not isinstance(provider_index, int)
-        or provider_index < 0
-        or provider_index >= len(recommended)
-    ):
+    if provider_index < 0 or provider_index >= len(recommended):
         state["booking_error"] = "Invalid provider selection."
         return state
 
@@ -71,7 +87,7 @@ def booking_agent_node(state):
 
     original_index = recommendation.get("provider_index")
 
-    providers = state.get("providers", [])
+    providers = state.get("providers") or []
 
     if (
         original_index is None
@@ -83,32 +99,18 @@ def booking_agent_node(state):
 
     provider = providers[original_index]
 
-    # -------------------------------------------------
-    # Save provider information
-    # -------------------------------------------------
-
     booking["provider_id"] = provider["_id"]
-
     booking["provider_name"] = (
         f"{provider['firstName']} {provider['lastName']}"
     )
-
-    # -------------------------------------------------
-    # Save booking
-    # -------------------------------------------------
-
-    state["booking"] = booking
-
-    # -------------------------------------------------
-    # Keep requirements updated
-    # -------------------------------------------------
 
     requirements["date"] = booking.get("date")
     requirements["description"] = booking.get("description")
 
     state["requirements"] = requirements
+    state["booking"] = booking
 
-    print("\n===== FINAL BOOKING STATE =====")
+    print("\n===== FINAL BOOKING =====")
     print(state["booking"])
 
     return state

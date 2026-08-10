@@ -29,10 +29,26 @@ planner_llm = prompt | llm.with_structured_output(PlannerDecision)
 
 def planner_agent(state: dict):
 
-    user = state["user_input"].lower().strip()
-    requirements = state.get("requirements") or {}
+    user = state.get("user_input", "").lower().strip()
 
+    requirements = state.get("requirements") or {}
+    booking = state.get("booking") or {}
+
+    # ---------------------------------------
+    # Booking already started
+    # ---------------------------------------
+
+    if booking.get("provider_id"):
+        return {
+            "next_action": "book_provider",
+            "missing_fields": None,
+            "message": "Continue booking.",
+        }
+
+    # ---------------------------------------
     # Booking Status
+    # ---------------------------------------
+
     if (
         "booking status" in user
         or user == "status"
@@ -46,7 +62,10 @@ def planner_agent(state: dict):
             "message": "Checking booking status.",
         }
 
-    # Booking
+    # ---------------------------------------
+    # User selected provider
+    # ---------------------------------------
+
     if user.startswith("book"):
         return {
             "next_action": "book_provider",
@@ -54,32 +73,43 @@ def planner_agent(state: dict):
             "message": "Booking selected provider.",
         }
 
+    # ---------------------------------------
     # Search
-    if requirements.get("service") and requirements.get("location"):
+    # ---------------------------------------
+
+    if (
+        requirements.get("service")
+        and requirements.get("location")
+    ):
         return {
             "next_action": "search_services",
             "missing_fields": None,
             "message": "Searching providers.",
         }
 
-    # Missing information
-    if not requirements.get("service") or not requirements.get("location"):
+    # ---------------------------------------
+    # Missing Information
+    # ---------------------------------------
 
-        missing = []
+    missing = []
 
-        if not requirements.get("service"):
-            missing.append("service")
+    if not requirements.get("service"):
+        missing.append("service")
 
-        if not requirements.get("location"):
-            missing.append("location")
+    if not requirements.get("location"):
+        missing.append("location")
 
+    if missing:
         return {
             "next_action": "ask_more_information",
             "missing_fields": missing,
             "message": "Need more information.",
         }
 
-    # LLM fallback
+    # ---------------------------------------
+    # LLM Fallback
+    # ---------------------------------------
+
     result = planner_llm.invoke(
         {
             "requirements": str(requirements)
