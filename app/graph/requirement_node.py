@@ -2,37 +2,114 @@ from app.agents.requirements_agent import requirements_agent
 
 
 def requirement_node(state):
+    """
+    Extract booking requirements while preserving previous values.
+    """
 
-    message = state["user_input"].lower().strip()
+    # --------------------------------------------------
+    # Current message
+    # --------------------------------------------------
+    message = state.get("user_input", "").strip()
+    lower_message = message.lower()
 
+    # --------------------------------------------------
+    # Current booking state
+    # --------------------------------------------------
     booking = state.get("booking") or {}
 
-    # ---------------------------------------
-    # Don't extract requirements while booking
-    # ---------------------------------------
-
+    # --------------------------------------------------
+    # Don't modify requirements during booking flow
+    # --------------------------------------------------
     if booking.get("provider_id"):
+        print("Booking flow detected. Skipping requirement extraction.")
         return state
 
-    if message.startswith("book"):
+    # --------------------------------------------------
+    # Skip extraction when user is selecting provider
+    # Example:
+    # Book 1
+    # Book 2
+    # --------------------------------------------------
+    if lower_message.startswith("book"):
+        print("Booking command detected. Skipping requirement extraction.")
         return state
 
-    result = requirements_agent.invoke(
-        {
-            "input": state["user_input"]
-        }
-    )
+    # --------------------------------------------------
+    # Existing requirements
+    # --------------------------------------------------
+    requirements = state.get("requirements", {}).copy()
 
-    print(result)
+    print("\n========== OLD REQUIREMENTS ==========")
+    print(requirements)
 
-    old_requirements = state.get("requirements", {})
+    # --------------------------------------------------
+    # Extract with LLM
+    # --------------------------------------------------
+    try:
+        result = requirements_agent.invoke(
+            {
+                "input": message
+            }
+        )
 
-    new_requirements = result.model_dump()
+        extracted = result.model_dump()
 
-    for key, value in new_requirements.items():
-        if value not in (None, ""):
-            old_requirements[key] = value
+        print("\n========== REQUIREMENT AGENT ==========")
+        print(extracted)
 
-    state["requirements"] = old_requirements
+    except Exception as e:
+        print("\n========== REQUIREMENT AGENT ERROR ==========")
+        print(e)
+        extracted = {}
+
+    # --------------------------------------------------
+    # Merge extracted values
+    # --------------------------------------------------
+    for key, value in extracted.items():
+        if value not in (None, "", []):
+            requirements[key] = value
+
+    # --------------------------------------------------
+    # Location fallback
+    # --------------------------------------------------
+    locations = {
+        "colombo": "Colombo",
+        "galle": "Galle",
+        "matara": "Matara",
+        "kandy": "Kandy",
+        "jaffna": "Jaffna",
+        "kurunegala": "Kurunegala",
+        "negombo": "Negombo",
+        "anuradhapura": "Anuradhapura",
+        "badulla": "Badulla",
+        "hambantota": "Hambantota",
+        "gampaha": "Gampaha",
+        "kalutara": "Kalutara",
+        "ratnapura": "Ratnapura",
+        "trincomalee": "Trincomalee",
+        "batticaloa": "Batticaloa",
+        "ampara": "Ampara",
+        "monaragala": "Monaragala",
+        "nuwara eliya": "Nuwara Eliya",
+        "polonnaruwa": "Polonnaruwa",
+        "matale": "Matale",
+        "puttalam": "Puttalam",
+        "vavuniya": "Vavuniya",
+        "kilinochchi": "Kilinochchi",
+        "mannar": "Mannar",
+        "mullaitivu": "Mullaitivu",
+        "kegalle": "Kegalle"
+    }
+
+    if lower_message in locations:
+        requirements["location"] = locations[lower_message]
+
+    # --------------------------------------------------
+    # Save merged requirements
+    # --------------------------------------------------
+    state["requirements"] = requirements
+
+    print("\n========== FINAL REQUIREMENTS ==========")
+    print(state["requirements"])
 
     return state

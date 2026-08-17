@@ -20,42 +20,7 @@ def booking_node(state):
         state["booking_error"] = "Booking information not found."
         return state
 
-    # ------------------------------------
-    # Ask Date
-    # ------------------------------------
-
-    if not booking.get("date"):
-
-        state["booking"] = booking
-
-        state["planner"] = {
-            "next_action": "ask_more_information",
-            "missing_fields": ["date"],
-        }
-
-        return state
-
-    # ------------------------------------
-    # Ask Description
-    # ------------------------------------
-
-    if not booking.get("description"):
-
-        state["booking"] = booking
-
-        state["planner"] = {
-            "next_action": "ask_more_information",
-            "missing_fields": ["description"],
-        }
-
-        return state
-
-    # ------------------------------------
-    # Customer
-    # ------------------------------------
-
     if not customer_id:
-
         state["booking_error"] = "customer_id is missing."
         return state
 
@@ -78,7 +43,6 @@ def booking_node(state):
     except Exception as e:
 
         print_exc()
-
         state["booking_error"] = str(e)
 
     return state

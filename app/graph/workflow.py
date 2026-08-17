@@ -10,16 +10,21 @@ from app.graph.booking_agent_node import booking_agent_node
 from app.graph.booking_node import booking_node
 from app.graph.booking_status_node import booking_status_node
 from app.graph.response_node import response_node
-from app.graph.router import router
 
+from app.graph.router import (
+    router,
+    booking_router,
+)
 
 workflow = StateGraph(GraphState)
 
 # -----------------------------
 # Nodes
 # -----------------------------
+
 workflow.add_node("requirements", requirement_node)
 workflow.add_node("planner", planner_node)
+
 workflow.add_node("search", search_node)
 workflow.add_node("recommend", recommendation_node)
 
@@ -33,19 +38,22 @@ workflow.add_node("response", response_node)
 # -----------------------------
 # Entry
 # -----------------------------
+
 workflow.set_entry_point("requirements")
 
 # -----------------------------
 # Requirements -> Planner
 # -----------------------------
+
 workflow.add_edge(
     "requirements",
-    "planner"
+    "planner",
 )
 
 # -----------------------------
 # Planner Router
 # -----------------------------
+
 workflow.add_conditional_edges(
     "planner",
     router,
@@ -60,43 +68,51 @@ workflow.add_conditional_edges(
 # -----------------------------
 # Recommendation Flow
 # -----------------------------
+
 workflow.add_edge(
     "search",
-    "recommend"
+    "recommend",
 )
 
 workflow.add_edge(
     "recommend",
-    "response"
+    "response",
 )
 
 # -----------------------------
 # Booking Flow
 # -----------------------------
-workflow.add_edge(
+
+workflow.add_conditional_edges(
     "booking_agent",
-    "booking"
+    booking_router,
+    {
+        "booking": "booking",
+        "response": "response",
+    },
 )
 
 workflow.add_edge(
     "booking",
-    "response"
+    "response",
 )
 
 # -----------------------------
 # Booking Status Flow
 # -----------------------------
+
 workflow.add_edge(
     "booking_status",
-    "response"
+    "response",
 )
 
 # -----------------------------
 # Finish
 # -----------------------------
+
 workflow.add_edge(
     "response",
-    END
+    END,
 )
 
 graph = workflow.compile()

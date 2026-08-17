@@ -3,53 +3,34 @@ from app.agents.planner_agent import planner_agent
 
 def planner_node(state):
     """
-    Decide the next action.
+    Planner node.
 
-    Priority:
-    1. Continue an active booking flow.
-    2. Otherwise use the planner agent.
+    Responsible only for deciding the next workflow.
     """
 
-    booking = state.get("booking") or {}
+    print("\n===== PLANNER INPUT STATE =====")
+    print(state)
 
-    # -----------------------------------------
-    # Continue existing booking flow
-    # -----------------------------------------
-    if booking.get("provider_id"):
+    # ------------------------------------------
+    # Clear stale booking state
+    # ------------------------------------------
 
-        # Ask for date
-        if not booking.get("date"):
-            state["planner"] = {
-                "next_action": "book_provider",
-                "missing_fields": ["date"],
-                "message": "Continue booking.",
-            }
-            return state
+    state.pop("booking_error", None)
+    state.pop("booking_result", None)
+    state.pop("booking_status", None)
 
-        # Ask for description
-        if not booking.get("description"):
-            state["planner"] = {
-                "next_action": "book_provider",
-                "missing_fields": ["description"],
-                "message": "Continue booking.",
-            }
-            return state
+    # ------------------------------------------
+    # Get planner decision
+    # ------------------------------------------
 
-        # Booking has all required information
-        state["planner"] = {
-            "next_action": "book_provider",
-            "missing_fields": None,
-            "message": "Creating booking.",
-        }
-        return state
-
-    # -----------------------------------------
-    # Normal planner
-    # -----------------------------------------
     result = planner_agent(state)
 
-    print("===== PLANNER RESULT =====")
+    print("\n===== PLANNER RESULT =====")
     print(result)
+
+    # ------------------------------------------
+    # Save planner output
+    # ------------------------------------------
 
     if hasattr(result, "model_dump"):
         state["planner"] = result.model_dump()

@@ -6,12 +6,23 @@ def search_node(state):
 
     requirement = Requirement(**state["requirements"])
 
-    print("===== SEARCH INPUT =====")
+    print("\n===== SEARCH INPUT =====")
     print(requirement)
+
+    # ------------------------------------------
+    # Clear old booking data
+    # ------------------------------------------
+
+    state.pop("booking_error", None)
+    state.pop("booking_result", None)
+
+    # ------------------------------------------
+    # Search providers
+    # ------------------------------------------
 
     providers = search_agent(requirement)
 
-    print("===== SEARCH RESULT =====")
+    print("\n===== SEARCH RESULT =====")
     print(providers)
 
     state["providers"] = providers
