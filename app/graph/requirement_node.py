@@ -1,115 +1,260 @@
 from app.agents.requirements_agent import requirements_agent
 
+# ==========================================================
+# Sri Lankan Locations
+# ==========================================================
+
+LOCATIONS = {
+    "colombo": "Colombo",
+    "galle": "Galle",
+    "matara": "Matara",
+    "kandy": "Kandy",
+    "jaffna": "Jaffna",
+    "kurunegala": "Kurunegala",
+    "negombo": "Negombo",
+    "anuradhapura": "Anuradhapura",
+    "badulla": "Badulla",
+    "hambantota": "Hambantota",
+    "gampaha": "Gampaha",
+    "kalutara": "Kalutara",
+    "ratnapura": "Ratnapura",
+    "trincomalee": "Trincomalee",
+    "batticaloa": "Batticaloa",
+    "ampara": "Ampara",
+    "monaragala": "Monaragala",
+    "nuwara eliya": "Nuwara Eliya",
+    "polonnaruwa": "Polonnaruwa",
+    "matale": "Matale",
+    "puttalam": "Puttalam",
+    "vavuniya": "Vavuniya",
+    "kilinochchi": "Kilinochchi",
+    "mannar": "Mannar",
+    "mullaitivu": "Mullaitivu",
+    "kegalle": "Kegalle",
+}
+
 
 def requirement_node(state):
-    """
-    Extract booking requirements while preserving previous values.
-    """
 
-    # --------------------------------------------------
-    # Current message
-    # --------------------------------------------------
+    print("\n========== REQUIREMENT NODE ==========")
+
     message = state.get("user_input", "").strip()
-    lower_message = message.lower()
 
-    # --------------------------------------------------
-    # Current booking state
-    # --------------------------------------------------
+    if not message:
+        return state
+
+    lower = message.lower()
+
+    print("MESSAGE :", message)
+
+    requirements = dict(
+        state.get("requirements") or {}
+    )
+
     booking = state.get("booking") or {}
 
-    # --------------------------------------------------
-    # Don't modify requirements during booking flow
-    # --------------------------------------------------
-    if booking.get("provider_id"):
-        print("Booking flow detected. Skipping requirement extraction.")
-        return state
+    # =====================================================
+    # Skip only pure "Book X"
+    # =====================================================
 
-    # --------------------------------------------------
-    # Skip extraction when user is selecting provider
-    # Example:
-    # Book 1
-    # Book 2
-    # --------------------------------------------------
-    if lower_message.startswith("book"):
-        print("Booking command detected. Skipping requirement extraction.")
-        return state
+    if lower.startswith("book"):
 
-    # --------------------------------------------------
-    # Existing requirements
-    # --------------------------------------------------
-    requirements = state.get("requirements", {}).copy()
+        words = lower.split()
 
-    print("\n========== OLD REQUIREMENTS ==========")
-    print(requirements)
+        if (
+            len(words) == 2
+            and words[1].isdigit()
+        ):
+            print("Provider selection detected.")
+            state["requirements"] = requirements
+            return state
 
-    # --------------------------------------------------
-    # Extract with LLM
-    # --------------------------------------------------
+    # =====================================================
+    # LLM Extraction
+    # =====================================================
+
+    extracted = {}
+
     try:
+
         result = requirements_agent.invoke(
             {
                 "input": message
             }
         )
 
-        extracted = result.model_dump()
+        if hasattr(result, "model_dump"):
+            extracted = result.model_dump()
 
-        print("\n========== REQUIREMENT AGENT ==========")
-        print(extracted)
+        elif hasattr(result, "dict"):
+            extracted = result.dict()
+
+        print("LLM :", extracted)
 
     except Exception as e:
-        print("\n========== REQUIREMENT AGENT ERROR ==========")
-        print(e)
-        extracted = {}
 
-    # --------------------------------------------------
-    # Merge extracted values
-    # --------------------------------------------------
+        print("Requirement Agent Error :", e)
+
+    # =====================================================
+    # Merge
+    # =====================================================
+
     for key, value in extracted.items():
-        if value not in (None, "", []):
-            requirements[key] = value
 
-    # --------------------------------------------------
-    # Location fallback
-    # --------------------------------------------------
-    locations = {
-        "colombo": "Colombo",
-        "galle": "Galle",
-        "matara": "Matara",
-        "kandy": "Kandy",
-        "jaffna": "Jaffna",
-        "kurunegala": "Kurunegala",
-        "negombo": "Negombo",
-        "anuradhapura": "Anuradhapura",
-        "badulla": "Badulla",
-        "hambantota": "Hambantota",
-        "gampaha": "Gampaha",
-        "kalutara": "Kalutara",
-        "ratnapura": "Ratnapura",
-        "trincomalee": "Trincomalee",
-        "batticaloa": "Batticaloa",
-        "ampara": "Ampara",
-        "monaragala": "Monaragala",
-        "nuwara eliya": "Nuwara Eliya",
-        "polonnaruwa": "Polonnaruwa",
-        "matale": "Matale",
-        "puttalam": "Puttalam",
-        "vavuniya": "Vavuniya",
-        "kilinochchi": "Kilinochchi",
-        "mannar": "Mannar",
-        "mullaitivu": "Mullaitivu",
-        "kegalle": "Kegalle"
-    }
+        if value is None:
+            continue
 
-    if lower_message in locations:
-        requirements["location"] = locations[lower_message]
+        if isinstance(value, str):
 
-    # --------------------------------------------------
-    # Save merged requirements
-    # --------------------------------------------------
+            value = value.strip()
+
+            if value == "":
+                continue
+
+        requirements[key] = value
+
+    # =====================================================
+    # Manual Location
+    # =====================================================
+
+    for key, city in LOCATIONS.items():
+
+        if key in lower:
+
+            requirements["location"] = city
+            break
+
+    # =====================================================
+    # Service Detection
+    # =====================================================
+
+    electrician_words = [
+        "electrician",
+        "electric",
+        "wire",
+        "wiring",
+        "socket",
+        "switch",
+        "light",
+        "lighting",
+        "fan",
+        "ceiling fan",
+        "power",
+        "plug",
+        "breaker",
+        "fuse",
+    ]
+
+    plumber_words = [
+        "plumber",
+        "pipe",
+        "tap",
+        "water",
+        "sink",
+        "toilet",
+        "drain",
+        "leak",
+    ]
+
+    carpenter_words = [
+        "carpenter",
+        "door",
+        "window",
+        "cupboard",
+        "wood",
+        "table",
+        "chair",
+    ]
+
+    cleaner_words = [
+        "clean",
+        "cleaner",
+        "cleaning",
+    ]
+
+    if (
+        not requirements.get("service")
+    ):
+
+        if any(
+            word in lower
+            for word in electrician_words
+        ):
+            requirements["service"] = "Electrician"
+
+        elif any(
+            word in lower
+            for word in plumber_words
+        ):
+            requirements["service"] = "Plumber"
+
+        elif any(
+            word in lower
+            for word in carpenter_words
+        ):
+            requirements["service"] = "Carpenter"
+
+        elif any(
+            word in lower
+            for word in cleaner_words
+        ):
+            requirements["service"] = "Cleaner"
+
+    # =====================================================
+    # Description
+    # =====================================================
+
+    description_words = [
+        "repair",
+        "fix",
+        "replace",
+        "install",
+        "broken",
+        "damage",
+        "issue",
+        "problem",
+        "maintenance",
+        "not working",
+    ]
+
+    if any(
+        word in lower
+        for word in description_words
+    ):
+
+        requirements["description"] = message
+
+    # =====================================================
+    # Booking Sync
+    # =====================================================
+
+    if booking:
+
+        booking.setdefault(
+            "service",
+            requirements.get("service")
+        )
+
+        booking.setdefault(
+            "city",
+            requirements.get("location")
+        )
+
+        if (
+            requirements.get("description")
+            and not booking.get("description")
+        ):
+            booking["description"] = requirements["description"]
+
+        state["booking"] = booking
+
+    # =====================================================
+    # Save
+    # =====================================================
+
     state["requirements"] = requirements
 
-    print("\n========== FINAL REQUIREMENTS ==========")
-    print(state["requirements"])
+    print("\nFINAL REQUIREMENTS")
+    print(requirements)
 
     return state

@@ -3,68 +3,159 @@ def router(state):
     Decide which node to execute after planner.
     """
 
-    planner = state.get("planner", {})
-    action = planner.get("next_action")
+    planner = state.get("planner") or {}
+    action = planner.get("next_action", "")
 
-    print("\n===== ROUTER =====")
+    print("\n========== ROUTER ==========")
     print("Planner :", planner)
     print("Action  :", action)
 
-    if action == "search_services":
-        return "search"
+    routes = {
+        "search_services": "search",
 
-    elif action == "book_provider":
-        return "booking"
+        "book_provider": "booking",
 
-    elif action == "booking_status":
-        return "booking_status"
+        "await_confirmation": "booking",
 
-    elif action == "ask_login":
-        return "response"
+        "confirm_booking": "booking",
 
-    elif action == "ask_more_information":
-        return "response"
+        "create_booking": "booking",
 
-    print("Unknown action. Routing to response.")
+        "booking_status": "booking_status",
+
+        "ask_login": "response",
+
+        "ask_more_information": "response",
+
+        "general_chat": "response",
+
+        "response": "response",
+
+        "stop": "response",
+    }
+
+    next_node = routes.get(action)
+
+    if next_node:
+        return next_node
+
+    print("Unknown planner action :", action)
+
     return "response"
 
 
 def booking_router(state):
     """
-    Decide whether booking can be created
-    or more booking information is required.
+    Booking workflow router.
+
+    booking_agent
+        ↓
+    booking_confirmation
+        ↓
+    booking_create
+        ↓
+    response
     """
 
-    booking = state.get("booking")
+    booking = state.get("booking") or {}
+    planner = state.get("planner") or {}
 
-    print("\n===== BOOKING ROUTER =====")
+    action = planner.get("next_action", "")
+
+    print("\n========== BOOKING ROUTER ==========")
+    print("Planner :", planner)
     print("Booking :", booking)
 
-    # No booking information
+    # --------------------------------------------------
+    # No booking
+    # --------------------------------------------------
+
     if not booking:
+
         state["response"] = (
-            "❌ I couldn't find the provider you selected."
+            "❌ I couldn't identify the booking details."
         )
+
         return "response"
 
-    # ------------------------------------------------
-    # DATE REQUIRED
-    # ------------------------------------------------
+    # --------------------------------------------------
+    # Provider required
+    # --------------------------------------------------
+
+    if not booking.get("provider_id"):
+
+        state["response"] = (
+            "Please select a provider first."
+        )
+
+        return "response"
+
+    # --------------------------------------------------
+    # Service required
+    # --------------------------------------------------
+
+    if not booking.get("service"):
+
+        state["response"] = (
+            "What service would you like to book?"
+        )
+
+        return "response"
+
+    # --------------------------------------------------
+    # Date required
+    # --------------------------------------------------
 
     if not booking.get("date"):
 
         state["response"] = (
-            "📅 What date and time would you like to book?\n\n"
+            "📅 What date would you like to book?\n\n"
             "Examples:\n"
-            "• Tomorrow 10 AM\n"
-            "• Friday 2 PM\n"
-            "• 15 August 9:30 AM"
+            "• Tomorrow\n"
+            "• Next Monday\n"
+            "• 2026-08-20"
         )
 
         return "response"
 
-    # ------------------------------------------------
-    # Everything required is available
-    # ------------------------------------------------
+    # --------------------------------------------------
+    # Description required
+    # --------------------------------------------------
 
-    return "booking"
+    if not booking.get("description"):
+
+        state["response"] = (
+            "📝 Please briefly describe the work you need done."
+        )
+
+        return "response"
+
+    # --------------------------------------------------
+    # Planner requested create
+    # --------------------------------------------------
+
+    if action == "create_booking":
+        return "create"
+
+    # --------------------------------------------------
+    # Already confirmed
+    # --------------------------------------------------
+
+    if state.get("booking_confirmed"):
+        return "create"
+
+    # --------------------------------------------------
+    # Planner requested confirmation
+    # --------------------------------------------------
+
+    if action in (
+        "await_confirmation",
+        "confirm_booking",
+    ):
+        return "confirm"
+
+    # --------------------------------------------------
+    # Default
+    # --------------------------------------------------
+
+    return "confirm"

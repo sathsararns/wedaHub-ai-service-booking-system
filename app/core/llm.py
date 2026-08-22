@@ -1,8 +1,9 @@
 from langchain_groq import ChatGroq
-from app.core.config import GROQ_API_KEY
+
+from app.core.config import GROQ_API_KEY, MODEL_NAME
 
 llm = ChatGroq(
     api_key=GROQ_API_KEY,
-    model="llama-3.3-70b-versatile",
+    model=MODEL_NAME,
     temperature=0.3,
 )

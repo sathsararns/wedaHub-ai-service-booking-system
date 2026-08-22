@@ -1,625 +1,441 @@
 def response_node(state):
     """
-    Generate the final response for the user.
-
-    Booking flow:
-        1. Login check
-        2. Search providers
-        3. Select provider
-        4. Ask booking date
-        5. Ask description
-        6. Create booking
-        7. Return booking data for frontend
-
-    AI booking does NOT require a time/slot.
+    Generate final response for user.
     """
 
-    planner = state.get("planner", {})
-    action = planner.get("next_action")
+    # ==========================================
+    # Helper
+    # ==========================================
 
-    # =====================================================
-    # RESET BOOKING CREATED FLAG
-    # =====================================================
+    def respond(text):
+        state["response"] = text
+        return state
+
+    planner = state.get("planner") or {}
+    requirements = state.get("requirements") or {}
+    booking = state.get("booking") or {}
+
+    if not isinstance(planner, dict):
+        planner = {}
+
+    if not isinstance(requirements, dict):
+        requirements = {}
+
+    if not isinstance(booking, dict):
+        booking = {}
+
+    action = planner.get("next_action", "")
+
+    user = (
+        state.get("user_input", "")
+        .strip()
+        .lower()
+    )
 
     state["booking_created"] = False
 
-    # =====================================================
-    # SUCCESSFUL BOOKING
-    #
-    # IMPORTANT:
-    # Always check booking_result FIRST.
-    # =====================================================
+    # ==========================================
+    # Booking Success
+    # ==========================================
 
-    booking_result = state.get("booking_result")
+    if state.get("booking_status") == "success":
 
-    if booking_result:
+        result = state.get("booking_result") or {}
 
-        booking_data = booking_result.get("booking") or {}
-
-        if not isinstance(booking_data, dict):
-            booking_data = {}
-
-        # =================================================
-        # PROVIDER
-        # =================================================
-
-        provider = booking_data.get("providerId") or {}
-
-        provider_name = ""
-
-        if isinstance(provider, dict):
-
-            first_name = provider.get(
-                "firstName",
-                ""
-            )
-
-            last_name = provider.get(
-                "lastName",
-                ""
-            )
-
-            provider_name = (
-                f"{first_name} {last_name}"
-            ).strip()
-
-        if not provider_name:
-
-            provider_name = (
-                booking_data.get(
-                    "providerName"
-                )
-                or state.get(
-                    "booking",
-                    {}
-                ).get(
-                    "provider_name",
-                    ""
-                )
-                or "Provider"
-            )
-
-        # =================================================
-        # BOOKING DATA
-        # =================================================
-
-        booking_id = booking_data.get(
-            "_id",
-            ""
+        booking_id = (
+            result.get("_id")
+            or result.get("bookingId")
+            or result.get("id")
+            or "-"
         )
 
-        service_name = (
-            booking_data.get(
-                "serviceName"
-            )
-            or booking_data.get(
-                "service"
-            )
-            or state.get(
-                "requirements",
-                {}
-            ).get(
-                "service",
-                "Service"
-            )
+        provider = booking.get(
+            "provider_name",
+            "Provider"
         )
 
-        description = (
-            booking_data.get(
-                "description"
-            )
-            or state.get(
-                "requirements",
-                {}
-            ).get(
-                "description"
-            )
-            or ""
+        service = booking.get(
+            "service",
+            "-"
         )
 
-        date = (
-            booking_data.get(
-                "date"
-            )
-            or state.get(
-                "requirements",
-                {}
-            ).get(
-                "date"
-            )
-            or ""
+        city = booking.get(
+            "city",
+            "-"
         )
 
-        city = (
-            booking_data.get(
-                "city"
-            )
-            or state.get(
-                "requirements",
-                {}
-            ).get(
-                "location"
-            )
-            or ""
+        date = booking.get(
+            "date",
+            "-"
         )
 
-        status = (
-            booking_data.get(
-                "status"
-            )
-            or "pending"
+        description = booking.get(
+            "description",
+            "-"
         )
-
-        # =================================================
-        # FORMAT DATE
-        # =================================================
-
-        formatted_date = ""
-
-        if date:
-
-            date_string = str(date)
-
-            # MongoDB ISO date
-            # 2026-08-14T04:30:00.000Z
-
-            if "T" in date_string:
-
-                formatted_date = (
-                    date_string
-                    .split("T")[0]
-                )
-
-            else:
-
-                formatted_date = date_string
-
-        # =================================================
-        # MARK BOOKING AS CREATED
-        # =================================================
 
         state["booking_created"] = True
 
-        # =================================================
-        # STORE CLEAN BOOKING OBJECT
-        #
-        # This is the object the frontend should use.
-        # =================================================
-
         state["created_booking"] = {
-
-            "_id": str(
-                booking_id
-            ),
-
-            "serviceName": service_name,
-
-            "description": description,
-
-            "date": formatted_date,
-
+            "_id": booking_id,
+            "providerName": provider,
+            "serviceName": service,
             "city": city,
-
-            "status": status,
-
-            "providerName": provider_name,
-
-            "providerId": (
-                str(
-                    provider.get("_id")
-                )
-                if isinstance(
-                    provider,
-                    dict
-                )
-                and provider.get("_id")
-                else ""
-            ),
-
+            "date": date,
+            "description": description,
+            "status": "Pending",
         }
 
-        # =================================================
-        # BOOKING CARD DATA
-        #
-        # IMPORTANT:
-        # No price
-        # No time
-        # No slot
-        # No duration
-        # No address requirement
-        # =================================================
-
-        state["booking_card"] = {
-
-            "_id": str(
-                booking_id
-            ),
-
-            "serviceName": service_name,
-
-            "description": description,
-
-            "date": formatted_date,
-
-            "city": city,
-
-            "status": status,
-
-            "providerName": provider_name,
-
-            "providerId": (
-                str(
-                    provider.get("_id")
-                )
-                if isinstance(
-                    provider,
-                    dict
-                )
-                and provider.get("_id")
-                else ""
-            ),
-
-        }
-
-        # =================================================
-        # FINAL TEXT RESPONSE
-        # =================================================
-
-        state["response"] = (
-
-            "✅ Booking Created Successfully!\n\n"
-
-            f"Booking ID : "
-            f"{booking_id or '-'}\n"
-
-            f"Provider : "
-            f"{provider_name}\n"
-
-            f"Service : "
-            f"{service_name}\n"
-
-            f"Description : "
-            f"{description or '-'}\n"
-
-            f"Date : "
-            f"{formatted_date or '-'}\n"
-
-            f"Status : "
-            f"{status}"
-
+        state["booking_card"] = (
+            state["created_booking"].copy()
         )
 
-        return state
+        return respond(
+            "✅ Booking Created Successfully!\n\n"
+            f"Booking ID : {booking_id}\n"
+            f"Provider : {provider}\n"
+            f"Service : {service}\n"
+            f"City : {city}\n"
+            f"Date : {date}\n"
+            f"Description : {description}\n"
+            "Status : Pending"
+        )
 
-    # =====================================================
-    # BOOKING ERROR
-    # =====================================================
+    # ==========================================
+    # Booking Error
+    # ==========================================
 
-    booking_error = state.get(
-        "booking_error"
-    )
+    booking_error = state.get("booking_error")
 
     if booking_error:
 
-        state["booking_created"] = False
-
-        state["response"] = (
-
-            "❌ Booking Failed!\n\n"
-
-            f"{booking_error}"
-
+        return respond(
+            f"❌ Booking Failed\n\n{booking_error}"
         )
 
-        return state
+    # ==========================================
+    # Greetings
+    # ==========================================
 
-    # =====================================================
-    # LOGIN REQUIRED
-    # =====================================================
+    greetings = {
+        "hi",
+        "hello",
+        "hey",
+        "hii",
+        "good morning",
+        "good afternoon",
+        "good evening",
+    }
+
+    if user in greetings:
+
+        return respond(
+            "👋 Welcome to WedaHub.\n\n"
+            "Tell me:\n\n"
+            "🔧 What service do you need?\n"
+            "📍 Which city?\n\n"
+            "Example:\n"
+            "• I need a plumber in Galle\n"
+            "• I need an electrician in Matara"
+        )
+
+    thanks = {
+        "thanks",
+        "thank you",
+        "thx",
+    }
+
+    if user in thanks:
+
+        return respond(
+            "😊 You're welcome!"
+        )
+
+    # ==========================================
+    # Login Required
+    # ==========================================
 
     if action == "ask_login":
 
-        state["response"] = (
-            "🔒 Please log in to create a booking."
+        return respond(
+            "🔒 Please login first to create a booking."
         )
-
-        return state
-
-    # =====================================================
-    # SEARCH RESULT
-    # =====================================================
+        # ==========================================
+    # SEARCH RESULTS
+    # ==========================================
 
     if action == "search_services":
 
-        recommendation_data = state.get(
+        recommendation_data = (
+            state.get("recommendations") or {}
+        )
+
+        recommendations = recommendation_data.get(
             "recommendations",
-            {}
+            []
         )
 
-        if not isinstance(
-            recommendation_data,
-            dict
-        ):
-
-            recommendation_data = {}
-
-        recommendations = (
-            recommendation_data.get(
-                "recommendations",
-                []
-            )
-        )
-
-        if not isinstance(
-            recommendations,
-            list
-        ):
-
+        if not isinstance(recommendations, list):
             recommendations = []
 
-        state["recommended_providers"] = (
-            recommendations
-        )
+        state["recommended_providers"] = recommendations
 
-        # -------------------------------------------------
-        # NO PROVIDERS
-        # -------------------------------------------------
+        # --------------------------------------
+        # No Providers
+        # --------------------------------------
 
-        if not recommendations:
+        if len(recommendations) == 0:
 
-            state["response"] = (
-
-                "No providers found.\n\n"
-
-                "Try changing:\n"
-
-                "- Service\n"
-                "- Location"
-
+            service = requirements.get(
+                "service",
+                "service"
             )
 
-            return state
+            location = requirements.get(
+                "location",
+                ""
+            )
 
-        # -------------------------------------------------
-        # PROVIDER LIST
-        # -------------------------------------------------
+            message = (
+                f"😔 Sorry, I couldn't find any "
+                f"{service} providers"
+            )
+
+            if location:
+                message += f" in {location}"
+
+            message += (
+                ".\n\nPlease try another location."
+            )
+
+            return respond(message)
+
+        # --------------------------------------
+        # Provider List
+        # --------------------------------------
+
+        service = requirements.get(
+            "service",
+            "service"
+        )
 
         text = (
-            "I found these providers for you:\n\n"
+            f"I found these {service} providers:\n\n"
         )
 
-        for i, provider in enumerate(
+        for index, item in enumerate(
             recommendations,
-            start=1
+            start=1,
         ):
 
-            if not isinstance(
-                provider,
-                dict
-            ):
+            if not isinstance(item, dict):
                 continue
 
-            business_name = (
-                provider.get(
-                    "business_name"
-                )
-                or "Unknown"
+            provider = item.get("provider") or {}
+
+            business = (
+                item.get("business_name")
+                or item.get("businessName")
+                or item.get("provider_name")
+                or provider.get("businessName")
+                or provider.get("name")
+                or "Unknown Provider"
             )
 
-            reason = (
-                provider.get(
-                    "reason"
-                )
+            rating = item.get("rating")
+
+            if isinstance(rating, (int, float)):
+                rating = round(rating, 1)
+            else:
+                rating = "N/A"
+
+            city = (
+                item.get("city")
+                or provider.get("city")
+                or item.get("district")
                 or ""
             )
 
-            rating = (
-                provider.get(
-                    "rating"
-                )
-
-                if provider.get(
-                    "rating"
-                ) is not None
-
-                else "N/A"
+            reason = (
+                item.get("reason")
+                or item.get("matchReason")
+                or ""
             )
 
             text += (
-
-                f"{i}. "
-                f"{business_name}\n"
-
-                f"   Reason : "
-                f"{reason}\n"
-
-                f"   Rating : "
-                f"{rating} ⭐\n\n"
-
+                f"{index}. {business}\n"
+                f"⭐ Rating : {rating}\n"
             )
 
+            if city:
+                text += f"📍 {city}\n"
+
+            if reason:
+                text += f"💬 {reason}\n"
+
+            text += "\n"
+
         text += (
-            "📅 Reply with:\n\n"
+            "\nReply with:\n"
         )
 
-        for i, provider in enumerate(
-            recommendations,
-            start=1
+        for index in range(
+            1,
+            len(recommendations) + 1,
         ):
+            text += f"\n• Book {index}"
 
-            if not isinstance(
-                provider,
-                dict
-            ):
-                continue
-
-            business_name = (
-                provider.get(
-                    "business_name"
-                )
-                or "Unknown"
-            )
-
-            text += (
-
-                f"• Book {i} - "
-                f"{business_name}\n"
-
-            )
-
-        text += (
-            "\nOr reply with 'More options'."
-        )
-
-        state["response"] = text
-
-        return state
-
-    # =====================================================
+        return respond(text)
+        # ==========================================
     # BOOKING FLOW
-    # =====================================================
+    # ==========================================
 
     if action == "book_provider":
 
-        booking = state.get(
-            "booking"
-        )
-
-        # -------------------------------------------------
-        # NO BOOKING DATA
-        # -------------------------------------------------
-
         if not booking:
 
-            state["response"] = (
-
-                "Sorry, I couldn't find "
-                "the booking information."
-
+            return respond(
+                "❌ I couldn't find the selected provider."
             )
 
-            return state
+        # Ask booking date
+        if not booking.get("date"):
 
-        if not isinstance(
-            booking,
-            dict
-        ):
-
-            state["response"] = (
-
-                "Sorry, I couldn't process "
-                "the booking information."
-
+            provider = booking.get(
+                "provider_name",
+                "the selected provider"
             )
 
-            return state
+            return respond(
+                f"✅ You selected {provider}.\n\n"
+                "📅 What date would you like to book?\n\n"
+                "Examples:\n"
+                "• Tomorrow\n"
+                "• Next Monday\n"
+                "• 2026-08-25"
+            )
 
-        # =================================================
-        # DATE
-        # =================================================
+        # Ask description
+        if not booking.get("description"):
+
+            return respond(
+                "📝 Please describe the work you need.\n\n"
+                "Examples:\n"
+                "• Repair my ceiling fan\n"
+                "• Fix my power outlet\n"
+                "• Install new lights"
+            )
+
+        return respond(
+            "✅ I have all the required information.\n"
+            "Preparing your booking..."
+        )
+
+    # ==========================================
+    # CONFIRM BOOKING
+    # ==========================================
+
+    if action in (
+        "await_confirmation",
+        "confirm_booking",
+    ):
+
+        provider = booking.get(
+            "provider_name",
+            "Provider"
+        )
+
+        service = booking.get(
+            "service",
+            "-"
+        )
+
+        city = booking.get(
+            "city",
+            "-"
+        )
 
         date = booking.get(
-            "date"
+            "date",
+            "-"
         )
-
-        if not date:
-
-            provider_name = (
-
-                booking.get(
-                    "provider_name"
-                )
-
-                or "the provider"
-
-            )
-
-            state["response"] = (
-
-                f"📅 You selected "
-                f"{provider_name}.\n\n"
-
-                "What date would you like "
-                "to book?\n\n"
-
-                "Examples:\n"
-
-                "• Tomorrow\n"
-                "• Friday\n"
-                "• 15 August"
-
-            )
-
-            return state
-
-        # =================================================
-        # DESCRIPTION
-        # =================================================
 
         description = booking.get(
-            "description"
+            "description",
+            "-"
         )
 
-        if not description:
-
-            state["response"] = (
-
-                "📝 Please describe the work "
-                "you need the provider to do."
-
-            )
-
-            return state
-
-        # =================================================
-        # BOOKING DATA READY
-        # =================================================
-
-        state["response"] = (
-
-            "Your booking information is ready. "
-            "Please wait while I create the booking."
-
+        return respond(
+            "📋 Please confirm your booking.\n\n"
+            f"👤 Provider : {provider}\n"
+            f"🔧 Service : {service}\n"
+            f"📍 City : {city}\n"
+            f"📅 Date : {date}\n"
+            f"📝 Description : {description}\n\n"
+            "Reply:\n"
+            "• Yes\n"
+            "or\n"
+            "• No"
         )
-
-        return state
-
-    # =====================================================
+        # ==========================================
     # BOOKING STATUS
-    # =====================================================
+    # ==========================================
 
     if action == "booking_status":
 
-        booking_status = state.get(
-            "booking_status"
-        )
+        booking_status = state.get("booking_status")
 
-        if booking_status:
+        if isinstance(booking_status, dict):
 
-            state["response"] = (
+            booking_info = booking_status.get(
+                "booking"
+            )
+
+            if isinstance(booking_info, dict):
+
+                return respond(
+                    "📋 Booking Details\n\n"
+                    f"Booking ID : {booking_info.get('_id', '-')}\n"
+                    f"Provider : {booking_info.get('providerName', '-')}\n"
+                    f"Service : {booking_info.get('service', '-')}\n"
+                    f"City : {booking_info.get('city', '-')}\n"
+                    f"Date : {booking_info.get('date', '-')}\n"
+                    f"Description : {booking_info.get('description', '-')}\n"
+                    f"Status : {booking_info.get('status', 'Pending')}"
+                )
+
+            if booking_status.get("message"):
+
+                return respond(
+                    booking_status["message"]
+                )
+
+        elif isinstance(booking_status, str):
+
+            return respond(
                 booking_status
             )
 
-            return state
-
-        state["response"] = (
-            "I couldn't find the booking status."
+        return respond(
+            "I couldn't find your booking."
         )
 
-        return state
-
-    # =====================================================
+    # ==========================================
     # ASK MORE INFORMATION
-    # =====================================================
+    # ==========================================
 
-    missing = (
-        planner.get(
-            "missing_fields"
+    if action == "ask_more_information":
+
+        missing = planner.get(
+            "missing_fields",
+            []
         )
-        or []
-    )
 
-    if missing:
+        if not isinstance(
+            missing,
+            list,
+        ):
+            missing = []
 
         questions = []
 
@@ -632,47 +448,74 @@ def response_node(state):
         if "location" in missing:
 
             questions.append(
-                "📍 Which location do you need "
-                "the service in?"
+                "📍 Which location?"
             )
 
         if "date" in missing:
 
             questions.append(
-                "📅 What date would you like "
-                "to book?"
+                "📅 What date would you like to book?"
             )
 
         if "description" in missing:
 
             questions.append(
-                "📝 Please describe the work "
-                "you need."
+                "📝 Please describe the work you need."
             )
 
         if questions:
 
-            state["response"] = (
-                "\n".join(
-                    questions
-                )
+            return respond(
+                "\n".join(questions)
             )
 
-        else:
+        return respond(
+            "Please provide a little more information."
+        )
+        # ==========================================
+    # GENERAL RESPONSE
+    # ==========================================
 
-            state["response"] = (
-                "Please provide more information "
-                "so I can continue."
-            )
+    general = state.get("general_response")
 
-        return state
+    if (
+        isinstance(general, str)
+        and general.strip()
+    ):
 
-    # =====================================================
-    # DEFAULT
-    # =====================================================
+        return respond(general)
 
-    state["response"] = (
-        "Sorry, I couldn't process your request."
+    # ==========================================
+    # BOOKING CREATED FLAG
+    # ==========================================
+
+    if state.get("booking_created"):
+
+        booking = state.get("created_booking", {})
+
+        return respond(
+            "✅ Booking Created Successfully!\n\n"
+            f"Booking ID : {booking.get('_id', '-')}\n"
+            f"Provider : {booking.get('providerName', '-')}\n"
+            f"Service : {booking.get('serviceName', '-')}\n"
+            f"City : {booking.get('city', '-')}\n"
+            f"Date : {booking.get('date', '-')}\n"
+            f"Description : {booking.get('description', '-')}\n"
+            f"Status : {booking.get('status', 'Pending')}"
+        )
+
+    # ==========================================
+    # DEFAULT RESPONSE
+    # ==========================================
+
+    return respond(
+        "❓ I didn't understand your request.\n\n"
+        "You can say:\n\n"
+        "• I need an electrician in Matara\n"
+        "• I need a plumber in Galle\n"
+        "• Book 1\n"
+        "• Tomorrow\n"
+        "• Repair my ceiling fan\n"
+        "• Yes\n"
+        "• Booking status"
     )
-
-    return state

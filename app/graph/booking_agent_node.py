@@ -1,146 +1,428 @@
+import re
+
 from app.agents.booking_agent import booking_agent
 
 
-def booking_agent_node(state):
+def is_empty(value):
     """
-    Booking agent node.
+    Returns True if value is None or empty string.
+    """
+    return value is None or (
+        isinstance(value, str)
+        and value.strip() == ""
+    )
 
-    Responsibilities:
-    - Verify login
-    - Parse booking information
-    - Merge booking state
-    - Resolve selected provider
+
+def fill_booking_defaults(booking, requirements):
     """
+    Fill booking fields from requirements if missing.
+    """
+
+    mapping = {
+        "service": "service",
+        "city": "location",
+        "date": "date",
+        "description": "description",
+    }
+
+    for booking_key, requirement_key in mapping.items():
+
+        if is_empty(booking.get(booking_key)):
+
+            booking[booking_key] = (
+                requirements.get(requirement_key)
+            )
+
+    return booking
+
+
+def booking_agent_node(state):
 
     print("\n========== BOOKING AGENT NODE ==========")
     print(state)
-    print("STATE KEYS:", list(state.keys()))
-    print("CUSTOMER ID:", state.get("customer_id"))
-    print("SESSION ID:", state.get("session_id"))
 
-    # -------------------------------------------------
-    # Login Required
-    # -------------------------------------------------
+    # =====================================================
+    # LOGIN CHECK
+    # =====================================================
 
-    customer_id = state.get("customer_id")
-
-    if customer_id is None or str(customer_id).strip() == "":
-        print("❌ customer_id missing")
+    if not state.get("customer_id"):
 
         state["planner"] = {
             "next_action": "ask_login"
         }
 
-        state["response"] = "🔒 Please log in to create a booking."
+        state["response"] = (
+            "🔒 Please log in to create a booking."
+        )
 
         return state
 
-    print("✅ Logged user:", customer_id)
+    # =====================================================
+    # LOAD STATE
+    # =====================================================
 
-    previous_booking = state.get("booking", {})
-    requirements = state.get("requirements", {})
-
-    # -------------------------------------------------
-    # Current message
-    # -------------------------------------------------
-
-    user_input = state.get("user_input", "")
-
-    result = booking_agent.invoke(
-        {
-            "input": user_input,
-            "current_booking": str(previous_booking),
-        }
+    previous_booking = (
+        state.get("booking") or {}
     )
 
-    booking = result.model_dump()
+    requirements = (
+        state.get("requirements") or {}
+    )
 
-    print("\n===== BOOKING AGENT OUTPUT =====")
+    user_input = (
+        state.get("user_input", "")
+    )
+
+    print("\nPrevious Booking")
+    print(previous_booking)
+
+    print("\nRequirements")
+    print(requirements)
+
+    print("\nUser Input")
+    print(user_input)
+
+    # =====================================================
+    # EXTRACT BOOKING DATA USING LLM
+    # =====================================================
+
+    extracted = {}
+
+    try:
+
+        result = booking_agent.invoke(
+            {
+                "input": user_input,
+                "current_booking": str(previous_booking),
+            }
+        )
+
+        if result:
+
+            if hasattr(result, "model_dump"):
+
+                extracted = result.model_dump()
+
+            elif hasattr(result, "dict"):
+
+                extracted = result.dict()
+
+            elif isinstance(result, dict):
+
+                extracted = result
+
+    except Exception as e:
+
+        print("\nBooking Agent Error")
+        print(e)
+
+        extracted = {}
+
+    # =====================================================
+    # FALLBACK REGEX
+    # =====================================================
+
+    if extracted.get("provider_index") is None:
+
+        match = re.search(
+            r"\bbook\s*(\d+)\b",
+            user_input,
+            re.IGNORECASE,
+        )
+
+        if match:
+
+            extracted["provider_index"] = (
+                int(match.group(1)) - 1
+            )
+
+    print("\nBooking Agent Output")
+    print(extracted)
+
+    # =====================================================
+    # MERGE WITH PREVIOUS BOOKING
+    # =====================================================
+
+    booking = previous_booking.copy()
+
+    for key, value in extracted.items():
+
+        if value is None:
+            continue
+
+        if isinstance(value, str):
+
+            value = value.strip()
+
+            if not value:
+                continue
+
+        booking[key] = value
+
+    booking = fill_booking_defaults(
+        booking,
+        requirements,
+    )
+
+    print("\nMerged Booking")
     print(booking)
 
-    # -------------------------------------------------
-    # Merge booking state
-    # -------------------------------------------------
+    # =====================================================
+    # PROVIDER SELECTION
+    # =====================================================
 
-    merged_booking = previous_booking.copy()
+    if not booking.get("provider_id"):
 
-    for key, value in booking.items():
-        if value not in (None, "", []):
-            merged_booking[key] = value
+        provider_index = booking.get(
+            "provider_index"
+        )
 
-    booking = merged_booking
+        if isinstance(provider_index, str):
 
-    # -------------------------------------------------
-    # Preserve values from requirements
-    # -------------------------------------------------
+            if provider_index.isdigit():
 
-    if not booking.get("date"):
-        booking["date"] = requirements.get("date")
+                provider_index = int(provider_index)
 
-    if not booking.get("description"):
-        booking["description"] = requirements.get("description")
+            else:
 
-    # -------------------------------------------------
-    # Provider already resolved
-    # -------------------------------------------------
+                provider_index = None
 
-    if booking.get("provider_id"):
+        elif isinstance(provider_index, float):
 
-        requirements["date"] = booking.get("date")
-        requirements["description"] = booking.get("description")
+            if provider_index.is_integer():
 
-        state["requirements"] = requirements
-        state["booking"] = booking
+                provider_index = int(provider_index)
 
-        print("\n===== FINAL BOOKING =====")
-        print(state["booking"])
+            else:
 
-        return state
+                provider_index = None
 
-    # -------------------------------------------------
-    # Resolve provider from recommendations
-    # -------------------------------------------------
+        elif isinstance(provider_index, bool):
 
-    recommended = state.get("recommended_providers", [])
+            provider_index = None
 
-    provider_index = booking.get("provider_index")
+        booking["provider_index"] = provider_index
 
-    if provider_index is None:
-        state["booking_error"] = "Please select a provider first."
-        return state
+        if provider_index is None:
 
-    if provider_index < 0 or provider_index >= len(recommended):
-        state["booking_error"] = "Invalid provider selection."
-        return state
+            state["booking_error"] = (
+                "Please select a provider first."
+            )
 
-    recommendation = recommended[provider_index]
+            return state
+                # =====================================================
+        # LOAD RECOMMENDED PROVIDERS
+        # =====================================================
 
-    original_index = recommendation.get("provider_index")
+        recommendations = (
+            state.get("recommended_providers") or []
+        )
 
-    providers = state.get("providers", [])
+        if not recommendations:
 
-    if (
-        original_index is None
-        or original_index < 0
-        or original_index >= len(providers)
-    ):
-        state["booking_error"] = "Selected provider could not be found."
-        return state
+            state["booking_error"] = (
+                "No providers available."
+            )
 
-    provider = providers[original_index]
+            return state
 
-    booking["provider_id"] = provider["_id"]
-    booking["provider_name"] = (
-        f"{provider['firstName']} {provider['lastName']}"
-    )
+        # =====================================================
+        # VALIDATE PROVIDER INDEX
+        # =====================================================
 
-    requirements["date"] = booking.get("date")
-    requirements["description"] = booking.get("description")
+        if (
+            provider_index < 0
+            or provider_index >= len(recommendations)
+        ):
 
-    state["requirements"] = requirements
+            state["booking_error"] = (
+                "Invalid provider selection."
+            )
+
+            return state
+
+        recommendation = recommendations[
+            provider_index
+        ]
+
+        if not isinstance(recommendation, dict):
+
+            state["booking_error"] = (
+                "Invalid provider data."
+            )
+
+            return state
+
+        # =====================================================
+        # LOAD ALL PROVIDERS
+        # =====================================================
+
+        providers = state.get("providers") or []
+
+        provider = None
+
+        # =====================================================
+        # METHOD 1
+        # Find using original provider_index
+        # =====================================================
+
+        original_index = recommendation.get(
+            "provider_index"
+        )
+
+        if (
+            isinstance(original_index, int)
+            and 0 <= original_index < len(providers)
+        ):
+
+            provider = providers[
+                original_index
+            ]
+
+        # =====================================================
+        # METHOD 2
+        # Find using Provider ID
+        # =====================================================
+
+        if provider is None:
+
+            recommendation_id = (
+                recommendation.get("_id")
+                or recommendation.get("provider_id")
+            )
+
+            if recommendation_id:
+
+                provider = next(
+
+                    (
+                        item
+                        for item in providers
+                        if str(
+                            item.get("_id")
+                        ) == str(recommendation_id)
+                    ),
+
+                    None,
+
+                )
+
+        # =====================================================
+        # PROVIDER NOT FOUND
+        # =====================================================
+
+        if provider is None:
+
+            state["booking_error"] = (
+                "Selected provider not found."
+            )
+
+            return state
+
+        # =====================================================
+        # SAVE PROVIDER INFORMATION
+        # =====================================================
+
+        provider_id = str(
+            provider.get("_id", "")
+        )
+
+        if not provider_id:
+
+            state["booking_error"] = (
+                "Provider ID missing."
+            )
+
+            return state
+
+        booking["provider_id"] = provider_id
+
+        provider_name = (
+            f"{provider.get('firstName', '')} "
+            f"{provider.get('lastName', '')}"
+        ).strip()
+
+        if not provider_name:
+
+            provider_name = (
+                provider.get("businessName")
+                or provider.get("name")
+                or "Provider"
+            )
+
+        booking["provider_name"] = provider_name
+
+        # =====================================================
+        # COPY DEFAULT VALUES
+        # =====================================================
+
+        booking = fill_booking_defaults(
+            booking,
+            requirements,
+        )
+
+        print("\nSelected Provider")
+        print(provider)
+
+        print("\nBooking After Provider Selection")
+        print(booking)
+            # =====================================================
+    # UPDATE REQUIREMENTS
+    # =====================================================
+
+    requirements.update({
+
+        "service":
+            booking.get("service")
+            or requirements.get("service"),
+
+        "location":
+            booking.get("city")
+            or requirements.get("location"),
+
+        "date":
+            booking.get("date")
+            or requirements.get("date"),
+
+        "description":
+            booking.get("description")
+            or requirements.get("description"),
+
+    })
+
+    # =====================================================
+    # SAVE STATE
+    # =====================================================
+
     state["booking"] = booking
+    state["requirements"] = requirements
 
-    print("\n===== FINAL BOOKING =====")
-    print(state["booking"])
+    # =====================================================
+    # CLEAR OLD ERRORS
+    # =====================================================
+
+    state.pop("booking_error", None)
+
+    # =====================================================
+    # DEBUG OUTPUT
+    # =====================================================
+
+    print("\n========== FINAL BOOKING ==========")
+    print(booking)
+
+    print("\n========== UPDATED REQUIREMENTS ==========")
+    print(requirements)
+
+    # =====================================================
+    # NEXT ACTION
+    # =====================================================
+
+    state["planner"] = {
+        "next_action": "confirm_booking"
+    }
+
+    # =====================================================
+    # RETURN
+    # =====================================================
 
     return state
