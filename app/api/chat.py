@@ -14,6 +14,9 @@ class ChatRequest(BaseModel):
     customerId: Optional[str] = None
 
 
+router = APIRouter()
+
+
 @router.post("/chat")
 async def chat_api(request: ChatRequest):
 
@@ -31,5 +34,9 @@ async def chat_api(request: ChatRequest):
             "recommended_providers",
             [],
         ),
-        "booking": result.get("booking_result"),
+        "booking": (
+            result.get("booking_card")
+            or result.get("created_booking")
+            or result.get("booking_result")
+        ),
     }

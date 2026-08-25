@@ -6,13 +6,6 @@ from app.tools.booking_tool import BookingTool
 def booking_create_node(state):
     """
     Booking Create Node
-
-    Responsibilities
-    ----------------
-    1. Validate booking details.
-    2. Call BookingTool.create_booking().
-    3. Save booking result.
-    4. Return success/failure response.
     """
 
     print("\n========== BOOKING CREATE NODE ==========")
@@ -22,7 +15,7 @@ def booking_create_node(state):
     customer_id = state.get("customer_id")
 
     # =====================================================
-    # VALIDATE BOOKING
+    # VALIDATE
     # =====================================================
 
     required_fields = [
@@ -78,36 +71,46 @@ def booking_create_node(state):
             description=booking["description"],
         )
 
-        if result is None:
-
-            raise Exception(
-                "Booking service returned no response."
-            )
+        if not result:
+            raise Exception("Booking service returned no response.")
 
         state["booking_result"] = result
         state["booking_status"] = "success"
 
         state.pop("booking_error", None)
 
-        booking_id = (
-            result.get("_id")
-            or result.get("bookingId")
-            or result.get("id")
-            or "N/A"
-        )
+        # =====================================================
+        # BOOKING OBJECT FOR FRONTEND
+        # =====================================================
 
-        state["response"] = (
-            "✅ Booking created successfully!\n\n"
-            f"👤 Provider : {booking.get('provider_name','Provider')}\n"
-            f"🛠 Service : {booking.get('service','')}\n"
-            f"📍 City : {booking.get('city','')}\n"
-            f"📅 Date : {booking.get('date','')}\n"
-            f"📝 Description : {booking.get('description','')}\n\n"
-            f"🆔 Booking ID : {booking_id}"
+        booking_data = result.get("booking", result)
+
+        state["booking_card"] = booking_data
+
+        state["booking_reference"] = (
+            booking_data.get("_id")
+            or booking_data.get("bookingId")
+            or booking_data.get("id")
+            or ""
         )
 
         # =====================================================
-        # CLEAR TEMPORARY STATE
+        # TEXT RESPONSE
+        # =====================================================
+
+        state["response"] = (
+            "✅ Booking Created Successfully!\n\n"
+            f"Booking ID : {state['booking_reference']}\n"
+            f"Provider : {booking.get('provider_name','Provider')}\n"
+            f"Service : {booking.get('service','')}\n"
+            f"City : {booking.get('city','')}\n"
+            f"Date : {booking.get('date','')}\n"
+            f"Description : {booking.get('description','')}\n"
+            f"Status : Pending"
+        )
+
+        # =====================================================
+        # KEEP booking_card
         # =====================================================
 
         state.pop("booking", None)

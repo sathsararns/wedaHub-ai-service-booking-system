@@ -11,26 +11,23 @@ def router(state):
     print("Action  :", action)
 
     routes = {
+        # Search
         "search_services": "search",
 
+        # Booking
         "book_provider": "booking",
-
         "await_confirmation": "booking",
-
         "confirm_booking": "booking",
-
         "create_booking": "booking",
 
+        # Status
         "booking_status": "booking_status",
 
+        # Response
         "ask_login": "response",
-
         "ask_more_information": "response",
-
         "general_chat": "response",
-
         "response": "response",
-
         "stop": "response",
     }
 
@@ -48,17 +45,17 @@ def booking_router(state):
     """
     Booking workflow router.
 
-    booking_agent
-        ↓
+        booking_agent
+             ↓
     booking_confirmation
-        ↓
-    booking_create
-        ↓
-    response
+             ↓
+     booking_create
+             ↓
+         response
     """
 
-    booking = state.get("booking") or {}
     planner = state.get("planner") or {}
+    booking = state.get("booking") or {}
 
     action = planner.get("next_action", "")
 
@@ -66,9 +63,9 @@ def booking_router(state):
     print("Planner :", planner)
     print("Booking :", booking)
 
-    # --------------------------------------------------
+    # ---------------------------------------
     # No booking
-    # --------------------------------------------------
+    # ---------------------------------------
 
     if not booking:
 
@@ -78,9 +75,9 @@ def booking_router(state):
 
         return "response"
 
-    # --------------------------------------------------
+    # ---------------------------------------
     # Provider required
-    # --------------------------------------------------
+    # ---------------------------------------
 
     if not booking.get("provider_id"):
 
@@ -90,9 +87,9 @@ def booking_router(state):
 
         return "response"
 
-    # --------------------------------------------------
+    # ---------------------------------------
     # Service required
-    # --------------------------------------------------
+    # ---------------------------------------
 
     if not booking.get("service"):
 
@@ -102,9 +99,9 @@ def booking_router(state):
 
         return "response"
 
-    # --------------------------------------------------
+    # ---------------------------------------
     # Date required
-    # --------------------------------------------------
+    # ---------------------------------------
 
     if not booking.get("date"):
 
@@ -118,9 +115,9 @@ def booking_router(state):
 
         return "response"
 
-    # --------------------------------------------------
+    # ---------------------------------------
     # Description required
-    # --------------------------------------------------
+    # ---------------------------------------
 
     if not booking.get("description"):
 
@@ -130,32 +127,30 @@ def booking_router(state):
 
         return "response"
 
-    # --------------------------------------------------
-    # Planner requested create
-    # --------------------------------------------------
-
-    if action == "create_booking":
-        return "create"
-
-    # --------------------------------------------------
+    # ---------------------------------------
     # Already confirmed
-    # --------------------------------------------------
+    # ---------------------------------------
 
     if state.get("booking_confirmed"):
+
+        print("Booking already confirmed -> booking_create")
+
         return "create"
 
-    # --------------------------------------------------
-    # Planner requested confirmation
-    # --------------------------------------------------
+    # ---------------------------------------
+    # Planner requested create
+    # ---------------------------------------
 
-    if action in (
-        "await_confirmation",
-        "confirm_booking",
-    ):
-        return "confirm"
+    if action == "create_booking":
 
-    # --------------------------------------------------
-    # Default
-    # --------------------------------------------------
+        print("Planner requested booking creation")
+
+        return "create"
+
+    # ---------------------------------------
+    # Need confirmation
+    # ---------------------------------------
+
+    print("Need booking confirmation")
 
     return "confirm"

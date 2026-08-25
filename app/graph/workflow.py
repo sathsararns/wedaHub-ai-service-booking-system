@@ -71,7 +71,7 @@ workflow.add_node(
 )
 
 # =========================================================
-# Entry Point
+# Entry
 # =========================================================
 
 workflow.set_entry_point("requirements")
@@ -115,7 +115,7 @@ workflow.add_edge(
 )
 
 # =========================================================
-# Booking Flow
+# Booking Agent
 # =========================================================
 
 workflow.add_conditional_edges(
@@ -127,14 +127,33 @@ workflow.add_conditional_edges(
     },
 )
 
+# =========================================================
+# Confirmation Router
+# =========================================================
+
+def confirmation_router(state):
+    """
+    booking_confirmation -> booking_create / response
+    """
+
+    if state.get("booking_confirmed"):
+        return "create"
+
+    return "response"
+
+
 workflow.add_conditional_edges(
     "booking_confirmation",
-    booking_router,
+    confirmation_router,
     {
         "create": "booking_create",
         "response": "response",
     },
 )
+
+# =========================================================
+# Booking Create
+# =========================================================
 
 workflow.add_edge(
     "booking_create",

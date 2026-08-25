@@ -11,12 +11,39 @@ def is_empty(value):
     )
 
 
+YES_PATTERN = re.compile(
+    r"^(yes|y|ok|okay|sure|confirm|confirmed|book it|go ahead)$",
+    re.IGNORECASE,
+)
+
+NO_PATTERN = re.compile(
+    r"^(no|n|cancel|stop)$",
+    re.IGNORECASE,
+)
+
+
 def booking_confirmation_node(state):
+    """
+    Booking confirmation node.
+
+    If all booking details exist:
+        -> Ask user to confirm.
+
+    If user says YES:
+        -> booking_confirmed=True
+
+    If user says NO:
+        -> cancel booking
+    """
 
     print("\n========== BOOKING CONFIRMATION NODE ==========")
     print(state)
 
     booking = state.get("booking") or {}
+
+    # ----------------------------------------
+    # Validate booking data
+    # ----------------------------------------
 
     missing = []
 
@@ -36,23 +63,41 @@ def booking_confirmation_node(state):
 
         state["booking_confirmed"] = False
 
+        questions = []
+
+        if "provider" in missing:
+            questions.append("• Provider")
+
+        if "service" in missing:
+            questions.append("• Service")
+
+        if "date" in missing:
+            questions.append("• Date")
+
+        if "description" in missing:
+            questions.append("• Description")
+
         state["response"] = (
             "Please provide:\n\n"
-            + "\n".join(f"• {m}" for m in missing)
+            + "\n".join(questions)
         )
 
         return state
 
+    # ----------------------------------------
+    # Read user response
+    # ----------------------------------------
+
     user = (
         state.get("user_input", "")
         .strip()
-        .lower()
     )
 
-    if re.fullmatch(
-        r"(yes|y|ok|okay|confirm|confirmed|sure|book it|go ahead)",
-        user,
-    ):
+    # ----------------------------------------
+    # YES
+    # ----------------------------------------
+
+    if YES_PATTERN.fullmatch(user):
 
         state["booking_confirmed"] = True
 
@@ -60,26 +105,33 @@ def booking_confirmation_node(state):
 
         return state
 
-    if re.fullmatch(
-        r"(no|cancel|stop)",
-        user,
-    ):
+    # ----------------------------------------
+    # NO
+    # ----------------------------------------
+
+    if NO_PATTERN.fullmatch(user):
 
         state["booking_confirmed"] = False
 
-        state["response"] = "Booking cancelled."
+        state["response"] = (
+            "❌ Booking cancelled."
+        )
 
         return state
+
+    # ----------------------------------------
+    # Ask confirmation
+    # ----------------------------------------
 
     state["booking_confirmed"] = False
 
     state["response"] = (
         "📋 Please confirm your booking.\n\n"
-        f"👤 Provider : {booking.get('provider_name','-')}\n"
-        f"🔧 Service : {booking.get('service','-')}\n"
-        f"📍 City : {booking.get('city','-')}\n"
-        f"📅 Date : {booking.get('date','-')}\n"
-        f"📝 Description : {booking.get('description','-')}\n\n"
+        f"👤 Provider : {booking.get('provider_name', '-')}\n"
+        f"🔧 Service : {booking.get('service', '-')}\n"
+        f"📍 City : {booking.get('city', '-')}\n"
+        f"📅 Date : {booking.get('date', '-')}\n"
+        f"📝 Description : {booking.get('description', '-')}\n\n"
         "Reply:\n"
         "• Yes\n"
         "• No"
