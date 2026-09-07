@@ -1,260 +1,126 @@
+from __future__ import annotations
+
+from copy import deepcopy
+from typing import Any, Dict
+
 from app.agents.requirements_agent import requirements_agent
 
-# ==========================================================
-# Sri Lankan Locations
-# ==========================================================
 
-LOCATIONS = {
-    "colombo": "Colombo",
-    "galle": "Galle",
-    "matara": "Matara",
-    "kandy": "Kandy",
-    "jaffna": "Jaffna",
-    "kurunegala": "Kurunegala",
-    "negombo": "Negombo",
-    "anuradhapura": "Anuradhapura",
-    "badulla": "Badulla",
-    "hambantota": "Hambantota",
-    "gampaha": "Gampaha",
-    "kalutara": "Kalutara",
-    "ratnapura": "Ratnapura",
-    "trincomalee": "Trincomalee",
-    "batticaloa": "Batticaloa",
-    "ampara": "Ampara",
-    "monaragala": "Monaragala",
-    "nuwara eliya": "Nuwara Eliya",
-    "polonnaruwa": "Polonnaruwa",
-    "matale": "Matale",
-    "puttalam": "Puttalam",
-    "vavuniya": "Vavuniya",
-    "kilinochchi": "Kilinochchi",
-    "mannar": "Mannar",
-    "mullaitivu": "Mullaitivu",
-    "kegalle": "Kegalle",
+SERVICE_MAP = {
+    "electrician": "Electrician",
+    "electrician service": "Electrician",
+    "plumber": "Plumbing",
+    "plumbing": "Plumbing",
+    "ac repair": "AC Repair",
+    "air conditioner repair": "AC Repair",
+    "ac service": "AC Repair",
+    "ac service & repair": "AC Repair",
+    "home cleaning": "Home Cleaning",
+    "cleaning": "Home Cleaning",
+    "pest control": "Pest Control",
+    "carpentry": "Carpentry",
+    "painting": "Painting",
+    "appliance repair": "Appliance Repair",
 }
 
 
-def requirement_node(state):
+def normalize_service(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
 
-    print("\n========== REQUIREMENT NODE ==========")
+    cleaned = value.strip()
+    if not cleaned:
+        return cleaned
 
-    message = state.get("user_input", "").strip()
+    lower = cleaned.lower()
+    if lower in SERVICE_MAP:
+        return SERVICE_MAP[lower]
 
-    if not message:
-        return state
+    # Keep acronym-like words intact (AC Repair, TV Repair, etc.)
+    if cleaned.isupper():
+        return cleaned
 
-    lower = message.lower()
+    return cleaned[0].upper() + cleaned[1:]
 
-    print("MESSAGE :", message)
 
-    requirements = dict(
-        state.get("requirements") or {}
-    )
+def normalize_location(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    cleaned = value.strip()
+    if not cleaned:
+        return cleaned
+    return cleaned.title()
 
-    booking = state.get("booking") or {}
 
-    # =====================================================
-    # Skip only pure "Book X"
-    # =====================================================
+def merge_requirements(
+    previous: Dict[str, Any] | None,
+    extracted: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    previous = previous or {}
+    extracted = extracted or {}
 
-    if lower.startswith("book"):
-
-        words = lower.split()
-
-        if (
-            len(words) == 2
-            and words[1].isdigit()
-        ):
-            print("Provider selection detected.")
-            state["requirements"] = requirements
-            return state
-
-    # =====================================================
-    # LLM Extraction
-    # =====================================================
-
-    extracted = {}
-
-    try:
-
-        result = requirements_agent.invoke(
-            {
-                "input": message
-            }
-        )
-
-        if hasattr(result, "model_dump"):
-            extracted = result.model_dump()
-
-        elif hasattr(result, "dict"):
-            extracted = result.dict()
-
-        print("LLM :", extracted)
-
-    except Exception as e:
-
-        print("Requirement Agent Error :", e)
-
-    # =====================================================
-    # Merge
-    # =====================================================
+    merged = deepcopy(previous)
 
     for key, value in extracted.items():
-
-        if value is None:
-            continue
+        if key == "service_type":
+            key = "service"
 
         if isinstance(value, str):
-
             value = value.strip()
 
-            if value == "":
-                continue
+        if value in (None, "", [], {}):
+            continue
 
-        requirements[key] = value
+        merged[key] = value
 
-    # =====================================================
-    # Manual Location
-    # =====================================================
+    if "service" in merged:
+        merged["service"] = normalize_service(merged["service"])
 
-    for key, city in LOCATIONS.items():
+    if "location" in merged:
+        merged["location"] = normalize_location(merged["location"])
 
-        if key in lower:
+    if isinstance(merged.get("date"), str):
+        merged["date"] = merged["date"].strip()
 
-            requirements["location"] = city
-            break
+    if isinstance(merged.get("description"), str):
+        merged["description"] = merged["description"].strip()
 
-    # =====================================================
-    # Service Detection
-    # =====================================================
+    # remove empties
+    merged = {
+        k: v for k, v in merged.items()
+        if v not in (None, "", [], {})
+    }
 
-    electrician_words = [
-        "electrician",
-        "electric",
-        "wire",
-        "wiring",
-        "socket",
-        "switch",
-        "light",
-        "lighting",
-        "fan",
-        "ceiling fan",
-        "power",
-        "plug",
-        "breaker",
-        "fuse",
-    ]
+    return merged
 
-    plumber_words = [
-        "plumber",
-        "pipe",
-        "tap",
-        "water",
-        "sink",
-        "toilet",
-        "drain",
-        "leak",
-    ]
 
-    carpenter_words = [
-        "carpenter",
-        "door",
-        "window",
-        "cupboard",
-        "wood",
-        "table",
-        "chair",
-    ]
+def requirement_node(state):
+    print("\n========== REQUIREMENT NODE ==========")
 
-    cleaner_words = [
-        "clean",
-        "cleaner",
-        "cleaning",
-    ]
+    user_input = (state.get("user_input") or "").strip()
+    print("MESSAGE :", user_input)
 
-    if (
-        not requirements.get("service")
-    ):
+    # Keep previous requirements and merge new values into them
+    previous_requirements = state.get("requirements") or {}
 
-        if any(
-            word in lower
-            for word in electrician_words
-        ):
-            requirements["service"] = "Electrician"
-
-        elif any(
-            word in lower
-            for word in plumber_words
-        ):
-            requirements["service"] = "Plumber"
-
-        elif any(
-            word in lower
-            for word in carpenter_words
-        ):
-            requirements["service"] = "Carpenter"
-
-        elif any(
-            word in lower
-            for word in cleaner_words
-        ):
-            requirements["service"] = "Cleaner"
-
-    # =====================================================
-    # Description
-    # =====================================================
-
-    description_words = [
-        "repair",
-        "fix",
-        "replace",
-        "install",
-        "broken",
-        "damage",
-        "issue",
-        "problem",
-        "maintenance",
-        "not working",
-    ]
-
-    if any(
-        word in lower
-        for word in description_words
-    ):
-
-        requirements["description"] = message
-
-    # =====================================================
-    # Booking Sync
-    # =====================================================
-
-    if booking:
-
-        booking.setdefault(
-            "service",
-            requirements.get("service")
+    try:
+        result = requirements_agent.invoke({"input": user_input})
+        extracted = (
+            result.model_dump()
+            if hasattr(result, "model_dump")
+            else dict(result)
         )
+    except Exception as e:
+        print("Requirements Agent Error:", e)
+        extracted = {}
 
-        booking.setdefault(
-            "city",
-            requirements.get("location")
-        )
+    print("LLM :", extracted)
 
-        if (
-            requirements.get("description")
-            and not booking.get("description")
-        ):
-            booking["description"] = requirements["description"]
+    merged_requirements = merge_requirements(previous_requirements, extracted)
 
-        state["booking"] = booking
-
-    # =====================================================
-    # Save
-    # =====================================================
-
-    state["requirements"] = requirements
+    state["requirements"] = merged_requirements
 
     print("\nFINAL REQUIREMENTS")
-    print(requirements)
+    print(state["requirements"])
 
     return state
