@@ -1,7 +1,17 @@
+import logging
+
+from app.core.tracing import trace_node
+
+logger = logging.getLogger(__name__)
+
+
+@trace_node("response_node")
 def response_node(state):
     """
     Generate final response for user.
     """
+
+    session_id = state.get("session_id")
 
     # ==========================================
     # Helper
@@ -9,6 +19,7 @@ def response_node(state):
 
     def respond(text):
         state["response"] = text
+        logger.info("session=%s final response ready", session_id)
         return state
 
     planner = state.get("planner") or {}
@@ -383,38 +394,19 @@ def response_node(state):
 
     if action == "booking_status":
 
-        booking_status = state.get("booking_status")
+        # booking_status_node.py runs immediately before this node and
+        # already builds the correct message from the real (flat) booking
+        # document returned by GET /api/bookings/:id — for both the
+        # success and the error/not-found cases. Trust it instead of
+        # re-parsing state["booking_status"] here against a nested
+        # {"booking": {...}} shape that get_booking_status() never
+        # actually returns.
 
-        if isinstance(booking_status, dict):
+        existing_response = state.get("response")
 
-            booking_info = booking_status.get(
-                "booking"
-            )
+        if isinstance(existing_response, str) and existing_response.strip():
 
-            if isinstance(booking_info, dict):
-
-                return respond(
-                    "📋 Booking Details\n\n"
-                    f"Booking ID : {booking_info.get('_id', '-')}\n"
-                    f"Provider : {booking_info.get('providerName', '-')}\n"
-                    f"Service : {booking_info.get('service', '-')}\n"
-                    f"City : {booking_info.get('city', '-')}\n"
-                    f"Date : {booking_info.get('date', '-')}\n"
-                    f"Description : {booking_info.get('description', '-')}\n"
-                    f"Status : {booking_info.get('status', 'Pending')}"
-                )
-
-            if booking_status.get("message"):
-
-                return respond(
-                    booking_status["message"]
-                )
-
-        elif isinstance(booking_status, str):
-
-            return respond(
-                booking_status
-            )
+            return respond(existing_response)
 
         return respond(
             "I couldn't find your booking."

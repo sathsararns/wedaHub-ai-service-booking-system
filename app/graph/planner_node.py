@@ -1,8 +1,12 @@
-from traceback import print_exc
+import logging
 
 from app.agents.planner_agent import planner_agent
+from app.core.tracing import trace_node
+
+logger = logging.getLogger(__name__)
 
 
+@trace_node("planner_node")
 def planner_node(state):
     """
     Planner Node
@@ -11,8 +15,7 @@ def planner_node(state):
     the next workflow.
     """
 
-    print("\n========== PLANNER NODE ==========")
-    print(state)
+    session_id = state.get("session_id")
 
     # =====================================================
     # Clear stale planner state
@@ -32,7 +35,7 @@ def planner_node(state):
 
     except Exception as e:
 
-        print_exc()
+        logger.exception("session=%s planner_agent raised", session_id)
 
         state["planner_error"] = str(e)
 
@@ -44,8 +47,7 @@ def planner_node(state):
 
         return state
 
-    print("\n========== PLANNER RESULT ==========")
-    print(result)
+    logger.debug("session=%s planner_result=%s", session_id, result)
 
     # =====================================================
     # No result
@@ -108,8 +110,9 @@ def planner_node(state):
 
     if planner["next_action"] not in valid_actions:
 
-        print(
-            "Unknown planner action:",
+        logger.warning(
+            "session=%s unknown planner action=%s, defaulting to response",
+            session_id,
             planner["next_action"],
         )
 
@@ -121,7 +124,6 @@ def planner_node(state):
 
     state["planner"] = planner
 
-    print("\n========== SAVED PLANNER ==========")
-    print(planner)
+    logger.info("session=%s next_action=%s", session_id, planner["next_action"])
 
     return state

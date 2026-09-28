@@ -1,9 +1,12 @@
+import logging
 import re
 
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.core.llm import llm
 from app.models.planner import PlannerDecision
+
+logger = logging.getLogger(__name__)
 
 
 # ==========================================================
@@ -62,10 +65,14 @@ def planner_agent(state: dict):
 
     recommended = state.get("recommended_providers") or []
 
-    print("\n========== PLANNER ==========")
-    print("User :", user)
-    print("Requirements :", requirements)
-    print("Booking :", booking)
+    session_id = state.get("session_id")
+    logger.debug(
+        "session=%s user=%r requirements=%s booking=%s",
+        session_id,
+        user,
+        requirements,
+        booking,
+    )
 
     # =====================================================
     # Greeting
@@ -287,6 +294,11 @@ def planner_agent(state: dict):
     # LLM Fallback
     # =====================================================
 
+    logger.info(
+        "session=%s no deterministic rule matched, falling back to LLM",
+        session_id,
+    )
+
     try:
 
         result = planner_llm.invoke(
@@ -309,9 +321,9 @@ def planner_agent(state: dict):
 
         return result
 
-    except Exception as e:
+    except Exception:
 
-        print("Planner LLM Error:", e)
+        logger.exception("session=%s planner LLM fallback failed", session_id)
 
     # =====================================================
     # Default

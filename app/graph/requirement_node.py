@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 from copy import deepcopy
 from typing import Any, Dict
 
 from app.agents.requirements_agent import requirements_agent
+from app.core.tracing import trace_node
+
+logger = logging.getLogger(__name__)
 
 
 SERVICE_MAP = {
@@ -94,11 +98,12 @@ def merge_requirements(
     return merged
 
 
+@trace_node("requirement_node")
 def requirement_node(state):
-    print("\n========== REQUIREMENT NODE ==========")
-
+    session_id = state.get("session_id")
     user_input = (state.get("user_input") or "").strip()
-    print("MESSAGE :", user_input)
+
+    logger.info("session=%s input=%r", session_id, user_input)
 
     # Keep previous requirements and merge new values into them
     previous_requirements = state.get("requirements") or {}
@@ -110,17 +115,16 @@ def requirement_node(state):
             if hasattr(result, "model_dump")
             else dict(result)
         )
-    except Exception as e:
-        print("Requirements Agent Error:", e)
+    except Exception:
+        logger.exception("session=%s requirements extraction failed", session_id)
         extracted = {}
 
-    print("LLM :", extracted)
+    logger.debug("session=%s extracted=%s", session_id, extracted)
 
     merged_requirements = merge_requirements(previous_requirements, extracted)
 
     state["requirements"] = merged_requirements
 
-    print("\nFINAL REQUIREMENTS")
-    print(state["requirements"])
+    logger.info("session=%s final_requirements=%s", session_id, merged_requirements)
 
     return state

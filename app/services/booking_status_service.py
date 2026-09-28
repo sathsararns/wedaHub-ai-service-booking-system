@@ -1,27 +1,33 @@
+import logging
+
 import requests
 
+from app.core.config import BACKEND_URL
 
-BACKEND_URL = "http://localhost:3000/api"
+logger = logging.getLogger(__name__)
 
 
 def get_booking_status(booking_id: str):
 
     try:
 
-        url = f"{BACKEND_URL}/bookings/{booking_id}"
+        url = f"{BACKEND_URL}/api/bookings/{booking_id}"
 
-        print("===== BOOKING STATUS URL =====")
-        print(url)
+        logger.info("Booking status lookup -> %s", url)
 
         response = requests.get(url)
 
-        print("===== STATUS =====")
-        print(response.status_code)
-
-        print("===== RESPONSE =====")
-        print(response.text)
+        logger.info(
+            "Booking status lookup <- status=%s",
+            response.status_code,
+        )
 
         if response.status_code != 200:
+
+            logger.warning(
+                "Booking status lookup failed: %s",
+                response.text,
+            )
 
             return {
                 "success": False,
@@ -34,6 +40,8 @@ def get_booking_status(booking_id: str):
         }
 
     except Exception as e:
+
+        logger.exception("Booking status lookup errored")
 
         return {
             "success": False,

@@ -1,38 +1,72 @@
-from app.agents.booking_status_agent import booking_status_agent
+"""
+Booking status lookup, via LLM tool-calling.
+
+Replaces the old booking_status_agent.py -> booking_status_tool.py chain
+(both deleted — that logic moved into
+app.tools.agent_tools.get_booking_status, called here through the same
+tool-agent mechanism used by the search/recommend and booking-create
+nodes). booking_id is never an LLM-supplied argument — see
+agent_tools.py for why.
+"""
+
+import logging
+
+from app.core.tracing import trace_node
+from app.graph.tool_agent import run_tool_agent
+from app.tools.agent_tools import make_tools
+
+logger = logging.getLogger(__name__)
+
+SYSTEM_PROMPT = """
+You are WedaHub's booking-status agent.
+
+You have exactly one tool: get_booking_status(). Call it now to check
+the user's booking.
+
+Only call the tool. Never answer in prose.
+"""
 
 
+@trace_node("booking_status_node")
 def booking_status_node(state):
-    """
-    Fetch the latest booking status from backend
-    and prepare a response.
-    """
+    session_id = state.get("session_id")
 
-    # --------------------------------
-    # Call Agent
-    # --------------------------------
-    state = booking_status_agent(state)
+    context = {
+        "booking_result": state.get("booking_result"),
+    }
 
-    # --------------------------------
-    # Error
-    # --------------------------------
-    if state.get("booking_status_error"):
+    tools = make_tools(context, session_id=session_id)
+    status_tools = [tools["get_booking_status"]]
 
-        state["response"] = (
-            "❌ Unable to retrieve your booking.\n\n"
-            f"{state['booking_status_error']}"
-        )
+    called = run_tool_agent(
+        session_id,
+        SYSTEM_PROMPT,
+        "Check my booking status.",
+        status_tools,
+    )
 
-        return state
+    logger.info("session=%s tools_called=%s", session_id, called)
 
-    booking = state.get("booking_status")
+    booking = context.get("booking_status_result")
 
     if not booking:
+
+        logger.warning("session=%s no booking status found", session_id)
 
         state["response"] = (
             "❌ No booking found."
         )
 
         return state
+
+    state["booking_status"] = booking
+
+    logger.info(
+        "session=%s booking status found, booking_id=%s status=%s",
+        session_id,
+        booking.get("_id"),
+        booking.get("status"),
+    )
 
     # --------------------------------
     # Provider Details

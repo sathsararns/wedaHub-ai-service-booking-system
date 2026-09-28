@@ -4,8 +4,7 @@ from app.state import GraphState
 
 from app.graph.requirement_node import requirement_node
 from app.graph.planner_node import planner_node
-from app.graph.search_node import search_node
-from app.graph.recommendation_node import recommendation_node
+from app.graph.search_agent_node import search_agent_node
 
 from app.graph.booking_agent_node import booking_agent_node
 from app.graph.booking_confirmation_node import booking_confirmation_node
@@ -37,12 +36,7 @@ workflow.add_node(
 
 workflow.add_node(
     "search",
-    search_node,
-)
-
-workflow.add_node(
-    "recommend",
-    recommendation_node,
+    search_agent_node,
 )
 
 workflow.add_node(
@@ -103,14 +97,12 @@ workflow.add_conditional_edges(
 # =========================================================
 # Search Flow
 # =========================================================
+# search_agent_node itself decides (via tool-calling) whether to call
+# search_providers only, or search_providers then recommend_providers —
+# both happen inside that one node now, not as separate graph edges.
 
 workflow.add_edge(
     "search",
-    "recommend",
-)
-
-workflow.add_edge(
-    "recommend",
     "response",
 )
 

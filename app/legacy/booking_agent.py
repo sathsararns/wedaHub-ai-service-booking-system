@@ -1,6 +1,6 @@
-from app.prompts.booking_prompt import booking_prompt
+from app.legacy.booking_prompt import booking_prompt
 from app.core.llm import llm
-from app.models.booking_request import BookingRequest
+from app.legacy.booking_request import BookingRequest
 
 # Structured Booking Extraction Agent
 booking_agent = (

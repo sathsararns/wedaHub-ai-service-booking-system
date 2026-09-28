@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 import re
 from copy import deepcopy
 from typing import Any, Dict, List
 
+from app.core.tracing import trace_node
+
+logger = logging.getLogger(__name__)
 
 BOOK_RE = re.compile(r"\bbook\s*([1-9]\d*)\b", re.IGNORECASE)
 
@@ -47,20 +51,22 @@ def _normalize_text(value: Any) -> Any:
     return cleaned if cleaned else None
 
 
+@trace_node("booking_agent_node")
 def booking_agent_node(state):
-    print("\n========== BOOKING AGENT NODE ==========")
-    print(state)
+    session_id = state.get("session_id")
 
     user_input = (state.get("user_input") or "").strip()
     requirements = deepcopy(state.get("requirements") or {})
     booking = deepcopy(state.get("booking") or {})
     customer_id = state.get("customer_id")
 
-    print("\nPrevious Booking")
-    print(booking)
-
-    print("\nRequirements")
-    print(requirements)
+    logger.debug(
+        "session=%s input=%r previous_booking=%s requirements=%s",
+        session_id,
+        user_input,
+        booking,
+        requirements,
+    )
 
     # --------------------------------------------------
     # 1) If user chose "Book 1 / Book 2 ..." select provider
@@ -96,11 +102,11 @@ def booking_agent_node(state):
             "• 2026-08-25"
         )
 
-        print("\n========== FINAL BOOKING ==========")
-        print(state["booking"])
-        print("\n========== BOOKING ROUTER ==========")
-        print("Planner :", state["planner"])
-        print("Booking :", state["booking"])
+        logger.info(
+            "session=%s provider selected -> provider_id=%s",
+            session_id,
+            booking["provider_id"],
+        )
         return state
 
     # --------------------------------------------------
@@ -137,6 +143,8 @@ def booking_agent_node(state):
         if not booking.get("description"):
             missing.append("description")
 
+        logger.info("session=%s missing_fields=%s", session_id, missing)
+
         if missing == ["date"]:
             state["planner"] = {
                 "next_action": "book_provider",
@@ -151,8 +159,6 @@ def booking_agent_node(state):
                 "• Next Monday\n"
                 "• 2026-08-25"
             )
-            print("\nBooking Continues")
-            print(state["booking"])
             return state
 
         if missing == ["description"]:
@@ -166,8 +172,6 @@ def booking_agent_node(state):
                 f"📅 Date : {booking.get('date')}\n\n"
                 "📝 Please describe the work you need."
             )
-            print("\nBooking Continues")
-            print(state["booking"])
             return state
 
         if not missing:
@@ -188,11 +192,7 @@ def booking_agent_node(state):
                 "or\n"
                 "• No"
             )
-            print("\n========== FINAL BOOKING ==========")
-            print(state["booking"])
-            print("\n========== BOOKING ROUTER ==========")
-            print("Planner :", state["planner"])
-            print("Booking :", state["booking"])
+            logger.info("session=%s booking ready for confirmation", session_id)
             return state
 
         # If only date exists but description missing, ask description
@@ -207,8 +207,6 @@ def booking_agent_node(state):
                 f"📅 Date : {booking.get('date')}\n\n"
                 "📝 Please describe the work you need."
             )
-            print("\nBooking Continues")
-            print(state["booking"])
             return state
 
     # --------------------------------------------------
@@ -217,6 +215,6 @@ def booking_agent_node(state):
     state["booking"] = booking
     state["requirements"] = requirements
 
-    print("\nBooking Continues")
-    print(state["booking"])
+    logger.info("session=%s no provider selected yet", session_id)
+
     return state

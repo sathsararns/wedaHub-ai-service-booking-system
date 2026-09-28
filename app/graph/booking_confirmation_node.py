@@ -1,4 +1,9 @@
+import logging
 import re
+
+from app.core.tracing import trace_node
+
+logger = logging.getLogger(__name__)
 
 
 def is_empty(value):
@@ -22,6 +27,7 @@ NO_PATTERN = re.compile(
 )
 
 
+@trace_node("booking_confirmation_node")
 def booking_confirmation_node(state):
     """
     Booking confirmation node.
@@ -36,8 +42,7 @@ def booking_confirmation_node(state):
         -> cancel booking
     """
 
-    print("\n========== BOOKING CONFIRMATION NODE ==========")
-    print(state)
+    session_id = state.get("session_id")
 
     booking = state.get("booking") or {}
 
@@ -60,6 +65,8 @@ def booking_confirmation_node(state):
         missing.append("description")
 
     if missing:
+
+        logger.info("session=%s cannot confirm, missing=%s", session_id, missing)
 
         state["booking_confirmed"] = False
 
@@ -101,7 +108,7 @@ def booking_confirmation_node(state):
 
         state["booking_confirmed"] = True
 
-        print("BOOKING CONFIRMED")
+        logger.info("session=%s booking confirmed by user", session_id)
 
         return state
 
@@ -116,6 +123,8 @@ def booking_confirmation_node(state):
         state["response"] = (
             "❌ Booking cancelled."
         )
+
+        logger.info("session=%s booking cancelled by user", session_id)
 
         return state
 

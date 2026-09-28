@@ -1,11 +1,16 @@
+import logging
+
 from app.tools.provider_tool import ProviderTool
+
+logger = logging.getLogger(__name__)
 
 
 def search_agent(requirement):
-    print("========== SEARCH AGENT ==========")
-
-    print("Service :", requirement.service)
-    print("Location:", requirement.location)
+    logger.info(
+        "Searching providers | service=%r location=%r",
+        requirement.service,
+        requirement.location,
+    )
 
     providers = ProviderTool.search(
         service=requirement.service,
@@ -15,7 +20,7 @@ def search_agent(requirement):
     if providers is None:
         providers = []
 
-    print(f"Providers Found: {len(providers)}")
-    print(providers)
+    logger.info("Providers found: %d", len(providers))
+    logger.debug("Providers: %s", providers)
 
     return providers

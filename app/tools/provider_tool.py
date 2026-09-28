@@ -1,13 +1,15 @@
+import logging
+
 import requests
-from app.config import EXPRESS_API
+from app.core.config import EXPRESS_API
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderTool:
 
     @staticmethod
     def search(service, location):
-
-        print("Calling Backend")
 
         response = requests.get(
             f"{EXPRESS_API}/providers/search",
@@ -18,12 +20,12 @@ class ProviderTool:
             timeout=20,
         )
 
-        print(response.url)
+        logger.info("Provider search -> %s", response.url)
 
         response.raise_for_status()
 
         data = response.json()
 
-        print(data)
+        logger.debug("Provider search <- %s", data)
 
         return data

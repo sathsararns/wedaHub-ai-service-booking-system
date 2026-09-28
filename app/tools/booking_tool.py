@@ -1,9 +1,14 @@
-import os
+import logging
+
 import requests
+
+from app.core.config import BACKEND_URL
+
+logger = logging.getLogger(__name__)
 
 
 class BookingTool:
-    BASE_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
+    BASE_URL = BACKEND_URL
 
     @staticmethod
     def create_booking(
@@ -36,10 +41,7 @@ class BookingTool:
             else:
                 headers["Authorization"] = f"Bearer {auth_token}"
 
-        print("\n========== BOOKING REQUEST ==========")
-        print(payload)
-        print("\n========== REQUEST URL ==========")
-        print(url)
+        logger.info("Booking request -> %s | payload=%s", url, payload)
 
         response = requests.post(
             url,
@@ -48,19 +50,20 @@ class BookingTool:
             timeout=20,
         )
 
-        print("\n========== STATUS ==========")
-        print(response.status_code)
-
         try:
             data = response.json()
         except Exception:
             data = {"message": response.text}
 
-        print("\n========== RESPONSE ==========")
-        print(data)
+        logger.info(
+            "Booking request <- status=%s response=%s",
+            response.status_code,
+            data,
+        )
 
         if response.status_code >= 400:
             message = data.get("message") if isinstance(data, dict) else str(data)
+            logger.error("Booking request failed: %s", message)
             raise Exception(message or "Booking request failed.")
 
         return data
