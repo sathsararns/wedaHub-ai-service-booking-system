@@ -1,0 +1,1 @@
+"""WedaHub AI service application."""

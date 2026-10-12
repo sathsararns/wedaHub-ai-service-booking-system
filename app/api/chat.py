@@ -3,29 +3,26 @@ import logging
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
-
-from app.services.chat_service import chat
-from app.memory.memory import memory
+from app.models.chat import ChatRequest, ResetRequest
+from app.services.chat_service import chat, clear_chat_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-class ChatRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    message: str
-    customer_id: str | None = Field(default=None, alias="customerId")
-    session_id: str | None = Field(default=None, alias="sessionId")
-
-
-class ResetRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    customer_id: str | None = Field(default=None, alias="customerId")
-    session_id: str | None = Field(default=None, alias="sessionId")
+def _created_booking(result):
+    """Expose a booking card only after the backend created a real booking."""
+    if not result.get("booking_created"):
+        return None
+    booking = result.get("booking_result")
+    if not isinstance(booking, dict):
+        return None
+    booking_id = (
+        booking.get("booking_id") or booking.get("bookingId")
+        or booking.get("_id") or booking.get("id")
+    )
+    return booking if booking_id and booking_id != "-" else None
 
 
 @router.post("/chat")
@@ -36,14 +33,10 @@ async def chat_api(request: ChatRequest):
         user_input=request.message,
     )
 
-    booking = result.get("booking")
-    if not booking or (isinstance(booking, dict) and len(booking) == 0):
-        booking = None
-
     return {
         "response": result.get("response"),
         "recommendations": result.get("recommended_providers", []),
-        "booking": booking,
+        "booking": _created_booking(result),
     }
 
 
@@ -93,10 +86,6 @@ async def _stream_chat_response(session_id, customer_id, user_input):
 
     response_text = result.get("response") or ""
 
-    booking = result.get("booking")
-    if not booking or (isinstance(booking, dict) and len(booking) == 0):
-        booking = None
-
     chunk_count = 0
 
     for chunk in _chunk_words(response_text):
@@ -108,7 +97,7 @@ async def _stream_chat_response(session_id, customer_id, user_input):
         {
             "type": "done",
             "recommendations": result.get("recommended_providers", []),
-            "booking": booking,
+            "booking": _created_booking(result),
         }
     )
     yield f"data: {done_frame}\n\n"
@@ -129,5 +118,5 @@ async def chat_stream_api(request: ChatRequest):
 @router.post("/chat/reset")
 async def reset_chat(request: ResetRequest):
     session_id = request.session_id or request.customer_id or "guest"
-    memory.clear(session_id)
+    clear_chat_session(session_id)
     return {"message": "chat reset", "sessionId": session_id}

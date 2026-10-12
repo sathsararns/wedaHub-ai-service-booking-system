@@ -1,10 +1,14 @@
 import logging
 from copy import deepcopy
 
-from app.memory.memory import memory
+from app.memory.store import memory
 from app.graph.workflow import graph
 
 logger = logging.getLogger(__name__)
+
+
+def clear_chat_session(session_id):
+    memory.clear(session_id)
 
 
 def chat(session_id=None, customer_id=None, user_input=None, message=None):

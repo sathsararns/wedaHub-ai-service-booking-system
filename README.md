@@ -47,10 +47,10 @@ Express backend (port 3000)
 This service — FastAPI (main.py)
    │  POST /chat         → app/api/chat.py       → app/services/chat_service.py
    │  POST /chat/stream  → app/api/chat.py       → same chat_service.chat(), streamed out
-   │  POST /chat/reset   → app/api/chat.py       → app/memory/memory.py
+   │  POST /chat/reset   → app/api/chat.py       → app/memory/store.py
    │
    │  Inside the graph, three nodes hand control to an LLM bound to
-   │  real tools (app/graph/tool_agent.py + app/tools/agent_tools.py) —
+   │  real tools (app/agents/tool_runner.py + app/tools/factory.py) —
    │  the LLM decides whether/which tool to call, not a Python if/else:
    │    search_agent_node    -> search_providers, recommend_providers
    │    booking_create_node  -> create_booking
@@ -70,20 +70,40 @@ MongoDB — read/written only via the Express backend, never directly
 
 ### Folder layout
 
-| Folder | Role |
-|---|---|
-| `app/api/` | FastAPI routes (`/chat`, `/chat/stream`, `/chat/reset`) |
-| `app/graph/` | The LangGraph `StateGraph` — every workflow node, the routers between them, and `tool_agent.py`, the shared tool-calling loop |
-| `app/agents/` | Agent functions/LLM chains: requirement extraction, planner, provider search, recommendation ranking |
-| `app/prompts/` | LLM system prompts |
-| `app/models/` | Pydantic schemas that constrain LLM structured output |
-| `app/tools/` | `agent_tools.py` — the 4 LangChain tools the agent nodes call — plus `booking_tool.py` and `provider_tool.py`, the underlying HTTP calls to the Express backend |
-| `app/rag/` | `provider_index.py` — the semantic retrieval layer: embeds provider profiles, builds the in-memory vector index, and answers `semantic_search()` queries. See section 6. |
-| `app/services/` | `chat_service.py` (load memory → run graph → save memory) and `booking_status_service.py` (the actual HTTP call for booking status) |
-| `app/memory/` | In-process conversation memory |
-| `app/core/` | Config (`config.py`), the shared LLM client (`llm.py`), logging setup (`logging_config.py`), and node tracing (`tracing.py`) |
-| `app/legacy/` | Alternate/dormant designs kept for reference — **not wired into the live app**. See [`app/legacy/README.md`](app/legacy/README.md) for what's there and why. |
-| `app/state.py` | The `GraphState` shape every node reads/writes |
+```text
+ai-service/
+  main.py                         FastAPI entry point
+  app/
+    api/                          HTTP endpoints
+    core/                         Configuration, lazy LLM client, logging, tracing
+    agents/                       AI chains, planner, bounded tool runner
+    graph/
+      workflow.py                 Graph assembly
+      router.py                   Routing decisions
+      state.py                    Shared graph state contract
+      nodes/                      Individual workflow steps
+    clients/backend_client.py     All Express HTTP requests
+    models/                       Chat request and AI output schemas
+    prompts/                      Prompt templates and node system prompts
+    services/                     Chat, provider search, booking status operations
+    tools/                        Request-scoped LangChain tools and factory
+    rag/                          Semantic provider index
+    memory/                       Conversation store and implementation
+  tests/
+    unit/                         Deterministic tests with mocked external calls
+    integration/                  Actual graph and HTTP contract tests
+  evals/                          Evaluation datasets and runner
+  scripts/                        Explicit manual checks
+  experiments/                    Dormant alternatives and legacy manual checks
+```
+
+Dependencies flow from API routes to services and the graph, then from nodes
+through agents/tools to services, retrieval, and the backend client. HTTP
+transport belongs in `clients/`; prompts belong in `prompts/`; graph nodes
+coordinate those operations. LLM clients and chains initialize on first use,
+so importing the application and running mocked tests requires no API key.
+
+The root `main.py` and public HTTP endpoints retain their existing locations.
 
 ---
 
@@ -130,12 +150,12 @@ MongoDB — read/written only via the Express backend, never directly
 |---|---|---|
 | Requirements | `app/agents/requirements_agent.py` | LLM chain, forced into the `Requirement` schema (`service`, `location`, `date`, `description`) |
 | Planner | `app/agents/planner_agent.py` | Deterministic rules first (greetings, keywords, regex), LLM fallback (`PlannerDecision` schema) only if nothing matches |
-| Search + recommend | `app/graph/search_agent_node.py` | **LLM tool-calling** — bound to `search_providers` + `recommend_providers`; decides whether/which to call. See section 5. |
-| Booking selection/collection | `app/graph/booking_agent_node.py` | Plain Python, not an LLM call — detects `"Book N"` via regex, then incrementally fills date/description from the requirements extracted each turn |
-| Booking confirmation | `app/graph/booking_confirmation_node.py` | Validates all required fields exist, reads the user's literal yes/no reply via regex |
-| Booking creation | `app/graph/booking_create_node.py` | **LLM tool-calling** — bound to `create_booking`. See section 5. |
-| Booking status | `app/graph/booking_status_node.py` | **LLM tool-calling** — bound to `get_booking_status`. See section 5. |
-| Response | `app/graph/response_node.py` | Formats every user-facing message; not an LLM call |
+| Search + recommend | `app/graph/nodes/search_agent_node.py` | **LLM tool-calling** — bound to `search_providers` + `recommend_providers`; decides whether/which to call. See section 5. |
+| Booking selection/collection | `app/graph/nodes/booking_agent_node.py` | Plain Python, not an LLM call — detects `"Book N"` via regex, then incrementally fills date/description from the requirements extracted each turn |
+| Booking confirmation | `app/graph/nodes/booking_confirmation_node.py` | Validates all required fields exist, reads the user's literal yes/no reply via regex |
+| Booking creation | `app/graph/nodes/booking_create_node.py` | **LLM tool-calling** — bound to `create_booking`. See section 5. |
+| Booking status | `app/graph/nodes/booking_status_node.py` | **LLM tool-calling** — bound to `get_booking_status`. See section 5. |
+| Response | `app/graph/nodes/response_node.py` | Formats every user-facing message; not an LLM call |
 
 Deliberately **not** converted to tool-calling: the planner's intent
 classification (search vs. booking vs. status vs. chit-chat), the
@@ -152,18 +172,18 @@ an external system: search, recommend, create, check status.
 ## 5. Agentic Tool-Calling
 
 This is the actual "agent" in the AI service. Four real actions are
-exposed as LangChain tools (`app/tools/agent_tools.py`) and bound to the
+exposed as LangChain tools (`app/tools/factory.py`) and bound to the
 LLM via `llm.bind_tools([...])`; a small shared loop
-(`app/graph/tool_agent.py`) lets the model call one, see the result, and
+(`app/agents/tool_runner.py`) lets the model call one, see the result, and
 decide whether to call another — a genuine, if intentionally narrow,
 ReAct loop — instead of a Python `if/else` calling the same functions
 directly.
 
 | Tool | Called from | What it wraps |
 |---|---|---|
-| `search_providers(service, location)` | `search_agent_node.py` | `app/rag/provider_index.py::semantic_search()` (falls back to `app/agents/search_agent.py` → `ProviderTool.search()` if unavailable) — see section 6 |
+| `search_providers(service, location)` | `search_agent_node.py` | `app/rag/provider_index.py::semantic_search()` (falls back to `app/services/provider_search_service.py` → `backend_client.search_providers()` if unavailable) — see section 6 |
 | `recommend_providers()` | `search_agent_node.py` | `app/agents/recommendation_agent.py` (an LLM ranking chain — a tool that itself calls another LLM) |
-| `create_booking()` | `booking_create_node.py` | `BookingTool.create_booking()` |
+| `create_booking()` | `booking_create_node.py` | `backend_client.create_booking()` |
 | `get_booking_status()` | `booking_status_node.py` | `app/services/booking_status_service.py` |
 
 Each node builds a fresh `context` dict, gets only the 1–2 tools relevant
@@ -198,8 +218,8 @@ required field itself and refuses (without ever calling the backend) if
 any is missing — defence in depth, verified by the evaluation harness's
 `agent_calls_tool_but_tool_rejects_incomplete_booking` case.
 
-Every tool call and its result is logged (`app.tools.agent_tools`
-logger) alongside the agent's own tool choice (`app.graph.tool_agent`
+Every tool call and its result is logged (`app.tools.factory`
+logger) alongside the agent's own tool choice (`app.agents.tool_runner`
 logger) — see section 14 for a real captured trace of this exact
 sequence.
 
@@ -225,7 +245,7 @@ from semantic retrieval or the old exact-match fallback.
 
 1. **Index build** (lazy, on first use, then auto-refreshed every 10
    minutes — `INDEX_TTL_SECONDS`): fetch every non-blocked provider via
-   `ProviderTool.search(service="", location="")` (the existing backend
+   `backend_client.search_providers(service="", location="")` (the existing backend
    regex already treats empty strings as "match everything" — no new
    backend endpoint needed), build one text string per provider from
    fields that actually exist on the `User` model — name, `category`,
@@ -287,7 +307,7 @@ straightforward way to tighten this further.
 If `fastembed` can't load the model (not installed, or no network for
 the first-time download) or the provider fetch fails, `semantic_search()`
 returns `None`, and `search_providers` falls back to the exact/regex
-`ProviderTool.search()` path used before this feature existed — the tool
+`backend_client.search_providers()` path used before this feature existed — the tool
 result string even says which path ran (`retrieval=semantic` vs.
 `retrieval=keyword_fallback`), and it's logged either way. The chat flow
 degrades; it never breaks.
@@ -316,6 +336,17 @@ TOOL RESULT search_providers -> 5 provider(s) via semantic
 
 ## 7. Booking Flow
 
+Once a provider is selected, keep that provider's service category throughout
+the booking. Later descriptions only fill in the work details: door repair for
+a selected Electrician stays an Electrician booking, including electrical doors.
+The graph enforces this even if the extraction model proposes another category.
+Before provider selection, a service change starts a new search. Semantic results
+are filtered by provider category before limiting the result count.
+
+The chat JSON/SSE `booking` field contains a saved booking only when that turn
+successfully creates it. Draft selections and confirmation requests return
+`booking: null`, so the frontend cannot show an early "Booking Created" card.
+
 1. User replies `"Book 1"` (etc.) after a search → `booking_agent_node.py`
    maps the number to a recommended provider and seeds `state["booking"]`
    with `provider_id` / `provider_name` / `service` / `city`.
@@ -327,7 +358,7 @@ TOOL RESULT search_providers -> 5 provider(s) via semantic
    "yes"/"no" reply.
 4. On "yes", `booking_create_node.py` runs the tool-calling agent
    described in section 5 above, which calls the `create_booking` tool →
-   `BookingTool.create_booking()` → `POST {BACKEND_URL}/api/bookings/ai`
+   `backend_client.create_booking()` → `POST {BACKEND_URL}/api/bookings/ai`
    on the Express backend, which parses the natural-language date
    server-side and creates a real `Booking` document
    (`status: "pending"`, `source: "ai"`).
@@ -363,9 +394,9 @@ in-process Python dictionary (`defaultdict(dict)`), keyed by `session_id`
   Chat" button via `POST /api/ai/chat/reset` on Express) clears one
   session's entry.
 
-`app/legacy/database.py` holds a working MongoDB client that is **not**
+`experiments/legacy/database.py` holds a working MongoDB client that is **not**
 currently used for memory or anything else — see
-[`app/legacy/README.md`](app/legacy/README.md).
+[`experiments/legacy/README.md`](experiments/legacy/README.md).
 
 ---
 
@@ -409,12 +440,13 @@ with [`uv`](https://github.com/astral-sh/uv) (`pyproject.toml` + `uv.lock`).
 
 ```bash
 cd ai-service
-uv sync                       # installs fastapi, langchain, langchain-groq,
-                               # langgraph, motor, pydantic, pymongo,
-                               # python-dotenv, uvicorn, fastembed
+uv sync
 
-uvicorn main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
 ```
+
+For a new checkout, copy `.env.example` to `.env` and configure your Groq key
+and backend URLs. Keep an existing `.env` when updating the project.
 
 No new environment variable or API key is needed for semantic
 retrieval — `fastembed` runs the embedding model fully locally. The
@@ -439,10 +471,10 @@ Set in `ai-service/.env`:
 |---|---|---|
 | `GROQ_API_KEY` | `app/core/llm.py` | Required — the Groq LLM API key |
 | `MODEL_NAME` | `app/core/llm.py` | Defaults to `llama-3.1-8b-instant` if unset |
-| `EXPRESS_API` | `app/tools/provider_tool.py`, `app/rag/provider_index.py` (index build fetches providers through the same tool) | Base URL for provider search, e.g. `http://localhost:3000/api` |
-| `BACKEND_URL` | `app/tools/booking_tool.py` | Base URL for booking creation; defaults to `http://localhost:3000` if unset |
-| `MONGO_URI` / `MONGODB_URI` | `app/legacy/database.py` (unused by the live app) | Either name is accepted |
-| `DB_NAME` | `app/legacy/database.py` (unused by the live app) | — |
+| `EXPRESS_API` | `app/clients/backend_client.py`, `app/rag/provider_index.py` (index build fetches providers through the same tool) | Base URL for provider search, e.g. `http://localhost:3000/api` |
+| `BACKEND_URL` | `app/clients/backend_client.py` | Base URL for booking creation; defaults to `http://localhost:3000` if unset |
+| `MONGO_URI` / `MONGODB_URI` | `experiments/legacy/database.py` (unused by the live app) | Either name is accepted |
+| `DB_NAME` | `experiments/legacy/database.py` (unused by the live app) | — |
 | `LOG_LEVEL` | `app/core/logging_config.py` | `INFO` by default; set to `DEBUG` to see full state/payload dumps |
 | `LANGCHAIN_TRACING_V2` | Read directly by LangChain, not by this repo's code | Set to `true` to turn on LangSmith tracing — see section 14 |
 | `LANGCHAIN_API_KEY` | Read directly by LangChain | Your LangSmith API key |
@@ -539,15 +571,45 @@ That's the entire agentic decision — which tool, with what arguments, in
 what order, and why it stopped — reconstructable from logs alone, with
 or without LangSmith configured.
 
+## Automated tests and manual checks
+
+Run the automated suite from `ai-service/`:
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
+These tests mock the LLM and Express backend. They exercise real graph routing,
+booking confirmation/cancellation, tool isolation, backend request contracts,
+conversation memory, and chat/SSE/reset endpoints. They never create a live booking.
+
+Run deterministic evaluation cases without external services:
+
+```bash
+uv run python -m evals.run_eval --offline
+```
+
+Manual checks are explicit module commands, for example:
+
+```bash
+uv run python -m scripts.check_planner
+uv run python -m scripts.check_llm
+uv run python -m scripts.check_search
+```
+
+The LLM/backend checks require `.env` and the relevant external services. The
+manual booking/chat checks may create real bookings when confirmed. Dormant
+MongoDB and alternate booking checks live under `experiments/manual_checks/`.
+
 ## 15. Evaluation Harness
 
 ```bash
 cd ai-service
-python tests/run_eval.py
+uv run python -m evals.run_eval
 ```
 
-Cases live in `tests/eval_dataset.py`, results are printed by
-`tests/run_eval.py`. Five kinds of coverage:
+Cases live in `evals/dataset.py`, results are printed by
+`evals/run_eval.py`. Five kinds of coverage:
 
 - **Planner decisions** (`PLANNER_CASES`) and **booking slot-filling**
   (`BOOKING_AGENT_CASES`) — deterministic Python logic, no LLM, no
@@ -610,4 +672,4 @@ affect it) — usable as a CI gate.
   configure LangSmith (section 14).
 - CORS in `main.py` only allows `http://localhost:5173`.
 - A few alternate/earlier implementations of the booking flow exist but
-  are intentionally unwired — see [`app/legacy/README.md`](app/legacy/README.md).
+  are intentionally unwired — see [`experiments/legacy/README.md`](experiments/legacy/README.md).

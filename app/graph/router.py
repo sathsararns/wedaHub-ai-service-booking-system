@@ -131,26 +131,6 @@ def booking_router(state):
         return "response"
 
     # ---------------------------------------
-    # Already confirmed
-    # ---------------------------------------
-
-    if state.get("booking_confirmed"):
-
-        logger.info("session=%s booking already confirmed -> create", session_id)
-
-        return "create"
-
-    # ---------------------------------------
-    # Planner requested create
-    # ---------------------------------------
-
-    if action == "create_booking":
-
-        logger.info("session=%s planner requested booking creation", session_id)
-
-        return "create"
-
-    # ---------------------------------------
     # Need confirmation
     # ---------------------------------------
 

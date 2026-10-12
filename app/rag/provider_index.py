@@ -24,7 +24,7 @@ Design (kept deliberately simple — see AI service README, "RAG" section)
   _ensure_index()/semantic_search() for a real vector DB is a contained
   change; nothing outside this file needs to know.
 - Corpus: every non-blocked provider, fetched via the SAME
-  ProviderTool.search() the rest of the app already uses (called with
+  backend_client.search_providers() the rest of the app already uses (called with
   empty service/location, which the existing backend regex-matches as
   "everything" — no new backend endpoint needed). Embedded text is built
   from fields that actually exist on the User model: category,
@@ -39,8 +39,8 @@ Design (kept deliberately simple — see AI service README, "RAG" section)
   (see app/api/rag.py) forces an immediate rebuild.
 - Fallback: if fastembed/the model can't load (not installed, or no
   network for the first-time model download) or the provider fetch
-  fails, semantic_search() returns None. Callers (app/tools/agent_tools.py)
-  are expected to fall back to the existing exact/regex ProviderTool.search()
+  fails, semantic_search() returns None. Callers (app/tools/factory.py)
+  are expected to fall back to the existing exact/regex backend_client.search_providers()
   path — retrieval degrades, the chat flow does not break.
 """
 
@@ -49,7 +49,8 @@ import time
 
 import numpy as np
 
-from app.tools.provider_tool import ProviderTool
+from app.clients.backend_client import backend_client
+from app.services.service_categories import normalize_service
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ def _fetch_all_providers() -> list[dict]:
     # Empty service/location -> the backend's existing regex match
     # ("" matches every string) returns the full non-blocked provider
     # catalogue. Reuses the exact same call path as normal search.
-    return ProviderTool.search(service="", location="") or []
+    return backend_client.search_providers(service="", location="") or []
 
 
 def _ensure_index(force: bool = False) -> bool:
@@ -214,7 +215,7 @@ def index_status() -> dict:
     }
 
 
-def semantic_search(query: str, top_k: int = 5, min_similarity: float = MIN_SIMILARITY):
+def semantic_search(query: str, top_k: int = 5, min_similarity: float = MIN_SIMILARITY, service: str | None = None):
     """
     Returns a list of (provider_dict, similarity_score) tuples, most
     relevant first, filtered to similarity >= min_similarity — or None
@@ -242,7 +243,12 @@ def semantic_search(query: str, top_k: int = 5, min_similarity: float = MIN_SIMI
         reverse=True,
     )
 
-    results = [(p, score) for p, score in ranked if score >= min_similarity][:top_k]
+    requested_service = normalize_service(service)
+    results = [
+        (provider, score) for provider, score in ranked
+        if score >= min_similarity
+        and (not requested_service or normalize_service(provider.get("category")) == requested_service)
+    ][:top_k]
 
     logger.info(
         "RAG retrieval query=%r top_k=%d matches=%s",

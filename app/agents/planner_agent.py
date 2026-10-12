@@ -1,9 +1,11 @@
+from functools import lru_cache
+
 import logging
 import re
 
-from langchain_core.prompts import ChatPromptTemplate
+from app.prompts.planner_prompt import planner_prompt
 
-from app.core.llm import llm
+from app.core.llm import get_llm
 from app.models.planner import PlannerDecision
 
 logger = logging.getLogger(__name__)
@@ -13,45 +15,10 @@ logger = logging.getLogger(__name__)
 # Planner LLM (Fallback Only)
 # ==========================================================
 
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """
-You are the Planner Agent.
 
-Your ONLY responsibility is deciding the next workflow.
-
-Available actions
-
-1. search_services
-2. book_provider
-3. await_confirmation
-4. create_booking
-5. booking_status
-6. ask_login
-7. ask_more_information
-8. general_chat
-9. response
-
-Return ONLY structured output.
-""",
-        ),
-        (
-            "human",
-            """
-Current State
-
-{requirements}
-""",
-        ),
-    ]
-)
-
-planner_llm = (
-    prompt
-    | llm.with_structured_output(PlannerDecision)
-)
+@lru_cache(maxsize=1)
+def get_planner_llm():
+    return planner_prompt | get_llm().with_structured_output(PlannerDecision)
 
 
 def planner_agent(state: dict):
@@ -66,6 +33,15 @@ def planner_agent(state: dict):
     recommended = state.get("recommended_providers") or []
 
     session_id = state.get("session_id")
+
+    if state.get("service_change"):
+        missing = [field for field in ("service", "location") if not requirements.get(field)]
+        return {
+            "next_action": "ask_more_information" if missing else "search_services",
+            "missing_fields": missing,
+            "message": "",
+        }
+
     logger.debug(
         "session=%s user=%r requirements=%s booking=%s",
         session_id,
@@ -301,7 +277,7 @@ def planner_agent(state: dict):
 
     try:
 
-        result = planner_llm.invoke(
+        result = get_planner_llm().invoke(
             {
                 "requirements": str(
                     {

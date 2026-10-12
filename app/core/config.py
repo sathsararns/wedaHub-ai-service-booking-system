@@ -17,7 +17,7 @@ MODEL_NAME = os.getenv(
 # ==========================
 # MongoDB
 # ==========================
-# Not currently used by the live chat flow (see app/legacy/database.py) —
+# Not currently used by the live chat flow (see experiments/legacy/database.py) —
 # kept for whichever future feature ends up needing direct DB access.
 # Accepts either MONGO_URI or MONGODB_URI since .env has used both names.
 
@@ -44,6 +44,3 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")
 
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false")
 LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "wedahub-ai-service")
-
-
-
