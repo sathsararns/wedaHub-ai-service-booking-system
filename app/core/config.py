@@ -31,6 +31,9 @@ DB_NAME = os.getenv("DB_NAME")
 
 EXPRESS_API = os.getenv("EXPRESS_API")
 
+# Keep local semantic retrieval enabled; small hosts can use keyword fallback.
+RAG_ENABLED = os.getenv("RAG_ENABLED", "true").strip().lower() in {"true", "1", "yes"}
+
 # Base URL of the Express backend for endpoints that aren't under
 # EXPRESS_API's "/api" prefix pattern (booking creation, booking status).
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:3000")

@@ -7,6 +7,18 @@ from app.rag import provider_index
 
 
 class ProviderRetrievalTests(unittest.TestCase):
+    def test_disabled_rag_uses_fallback_without_loading_or_fetching_providers(self):
+        embedder = Mock()
+        with (
+            patch.object(provider_index, "RAG_ENABLED", False),
+            patch.object(provider_index, "_embedder", embedder),
+            patch.object(provider_index.backend_client, "search_providers") as fetch,
+        ):
+            self.assertIsNone(provider_index.semantic_search("Electrician in Galle"))
+            self.assertFalse(provider_index.is_available())
+        embedder.embed.assert_not_called()
+        fetch.assert_not_called()
+
     def test_service_filter_is_applied_before_the_result_limit(self):
         electrician = {"_id": "electrician-1", "category": "Electrician"}
         carpenter = {"_id": "carpenter-1", "category": "Carpenter"}

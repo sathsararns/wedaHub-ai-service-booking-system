@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: wedahub-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install uv==0.10.12 && uv sync --frozen --no-dev
+    startCommand: .venv/bin/uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.20
+      - key: GROQ_API_KEY
+        sync: false
+      - key: MODEL_NAME
+        value: llama-3.1-8b-instant
+      - key: BACKEND_URL
+        sync: false
+      - key: RAG_ENABLED
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO

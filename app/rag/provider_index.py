@@ -50,6 +50,7 @@ import time
 import numpy as np
 
 from app.clients.backend_client import backend_client
+from app.core.config import RAG_ENABLED
 from app.services.service_categories import normalize_service
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,9 @@ def _get_embedder():
     fast instead of retrying a slow/broken import or download.
     """
     global _embedder
+
+    if not RAG_ENABLED:
+        return None
 
     if _embedder is not _EMBEDDER_UNSET:
         return _embedder

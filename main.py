@@ -26,6 +26,11 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(rag_router)
 
+@app.get("/health")
+async def health():
+    # Liveness only: don't load the embedding model or call Groq for health checks.
+    return {"status": "ok"}
+
 @app.get("/")
 async def root():
     return {

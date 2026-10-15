@@ -13,6 +13,13 @@ class ChatApiTests(unittest.TestCase):
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
 
+    def test_health_does_not_call_the_model_or_backend(self):
+        with patch("app.api.chat.chat") as chat:
+            response = self.client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+        chat.assert_not_called()
+
     @patch("app.api.chat.chat")
     def test_chat_keeps_the_frontend_request_and_response_contract(self, chat):
         chat.return_value = {"response": "Hello", "recommended_providers": [], "booking": {}}

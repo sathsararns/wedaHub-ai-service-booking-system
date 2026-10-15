@@ -1,5 +1,25 @@
 # WedaHub AI Service
 
+## Deploy to Render
+
+Use `render.yaml` as a Blueprint, or create a Free Python web service with:
+
+- Python version: `PYTHON_VERSION=3.10.20`
+- Build: `pip install uv==0.10.12 && uv sync --frozen --no-dev`
+- Start: `.venv/bin/uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`
+- Health path: `/health`
+
+Set `GROQ_API_KEY`, `BACKEND_URL` (the public Express URL), and optionally
+`EXPRESS_API` (the same URL plus `/api`). Set `RAG_ENABLED=false` on a small Free
+instance to skip local embeddings and use keyword provider search. Groq chat
+remains available; semantic retrieval is disabled. Local defaults remain enabled.
+Use one worker because conversation memory is process-local.
+
+Health checks do not call Groq, Express, or the embedding model. The browser still
+calls Express; it does not need to connect directly to this service.
+
+See [the complete deployment guide](../DEPLOYMENT.md) in the WedaHub workspace.
+
 A conversational, tool-using booking assistant for WedaHub, a
 home-services marketplace. Customers chat in natural language (e.g.
 *"my lights keep flickering and the fuse box smells burnt, I'm in
