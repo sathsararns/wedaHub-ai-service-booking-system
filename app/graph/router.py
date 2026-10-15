@@ -1,14 +1,18 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 def router(state):
     """
     Decide which node to execute after planner.
     """
 
+    session_id = state.get("session_id")
     planner = state.get("planner") or {}
     action = planner.get("next_action", "")
 
-    print("\n========== ROUTER ==========")
-    print("Planner :", planner)
-    print("Action  :", action)
+    logger.info("session=%s router action=%s", session_id, action)
 
     routes = {
         # Search
@@ -36,7 +40,7 @@ def router(state):
     if next_node:
         return next_node
 
-    print("Unknown planner action :", action)
+    logger.warning("session=%s unknown planner action=%s", session_id, action)
 
     return "response"
 
@@ -54,14 +58,13 @@ def booking_router(state):
          response
     """
 
+    session_id = state.get("session_id")
     planner = state.get("planner") or {}
     booking = state.get("booking") or {}
 
     action = planner.get("next_action", "")
 
-    print("\n========== BOOKING ROUTER ==========")
-    print("Planner :", planner)
-    print("Booking :", booking)
+    logger.info("session=%s booking_router action=%s", session_id, action)
 
     # ---------------------------------------
     # No booking
@@ -128,29 +131,9 @@ def booking_router(state):
         return "response"
 
     # ---------------------------------------
-    # Already confirmed
-    # ---------------------------------------
-
-    if state.get("booking_confirmed"):
-
-        print("Booking already confirmed -> booking_create")
-
-        return "create"
-
-    # ---------------------------------------
-    # Planner requested create
-    # ---------------------------------------
-
-    if action == "create_booking":
-
-        print("Planner requested booking creation")
-
-        return "create"
-
-    # ---------------------------------------
     # Need confirmation
     # ---------------------------------------
 
-    print("Need booking confirmation")
+    logger.info("session=%s needs booking confirmation", session_id)
 
     return "confirm"

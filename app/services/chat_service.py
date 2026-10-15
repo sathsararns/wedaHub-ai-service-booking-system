@@ -1,7 +1,14 @@
+import logging
 from copy import deepcopy
 
-from app.memory.memory import memory
+from app.memory.store import memory
 from app.graph.workflow import graph
+
+logger = logging.getLogger(__name__)
+
+
+def clear_chat_session(session_id):
+    memory.clear(session_id)
 
 
 def chat(session_id=None, customer_id=None, user_input=None, message=None):
@@ -26,17 +33,15 @@ def chat(session_id=None, customer_id=None, user_input=None, message=None):
     state.setdefault("booking_result", previous_state.get("booking_result"))
     state.setdefault("booking_error", previous_state.get("booking_error"))
 
-    print("===== STATE BEFORE GRAPH =====")
-    print(state)
+    logger.info("session=%s chat start | input=%r", session_id, text)
+    logger.debug("session=%s state_before_graph=%s", session_id, state)
 
     result = graph.invoke(state)
 
-    print("===== RESULT FROM GRAPH =====")
-    print(result)
+    logger.debug("session=%s result_from_graph=%s", session_id, result)
 
     memory.save(session_id, result)
 
-    print("===== MEMORY AFTER SAVE =====")
-    print(memory.sessions)
+    logger.info("session=%s chat done", session_id)
 
     return result
