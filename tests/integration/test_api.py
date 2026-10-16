@@ -1,5 +1,7 @@
 import json
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -36,6 +38,36 @@ class ChatApiTests(unittest.TestCase):
         events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
         self.assertEqual("".join(event["text"] for event in events if event["type"] == "chunk"), chat.return_value["response"])
         self.assertEqual(events[-1], {"type": "done", "recommendations": [{"provider_id": "provider-1"}], "booking": None})
+
+    @patch("app.api.chat.chat", side_effect=RuntimeError("private model credentials"))
+    def test_stream_failure_is_an_explicit_error_not_a_successful_empty_reply(self, chat):
+        response = self.client.post("/chat/stream", json={"message": "hi"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["x-accel-buffering"], "no")
+        events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["type"], "error")
+        self.assertNotIn("private model credentials", response.text)
+
+    def test_health_remains_responsive_while_a_chat_workflow_is_waiting(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_chat(**kwargs):
+            started.set()
+            release.wait(timeout=3)
+            return {"response": "Hello"}
+
+        with patch("app.api.chat.chat", side_effect=slow_chat):
+            with self.client, ThreadPoolExecutor(max_workers=2) as pool:
+                reply = pool.submit(self.client.post, "/chat/stream", json={"message": "hi"})
+                try:
+                    self.assertTrue(started.wait(timeout=2))
+                    health = pool.submit(self.client.get, "/health").result(timeout=1)
+                    self.assertEqual(health.status_code, 200)
+                finally:
+                    release.set()
+                self.assertIn('"type": "done"', reply.result(timeout=2).text)
 
     @patch("app.api.chat.chat")
     def test_draft_bookings_never_appear_as_created_in_json_or_stream(self, chat):

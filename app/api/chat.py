@@ -3,6 +3,7 @@ import logging
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from app.models.chat import ChatRequest, ResetRequest
 from app.services.chat_service import chat, clear_chat_session
 
@@ -27,7 +28,8 @@ def _created_booking(result):
 
 @router.post("/chat")
 async def chat_api(request: ChatRequest):
-    result = chat(
+    result = await run_in_threadpool(
+        chat,
         session_id=request.session_id or request.customer_id or "guest",
         customer_id=request.customer_id,
         user_input=request.message,
@@ -78,11 +80,24 @@ async def _stream_chat_response(session_id, customer_id, user_input):
 
     logger.info("session=%s stream requested", session_id)
 
-    result = chat(
-        session_id=session_id,
-        customer_id=customer_id,
-        user_input=user_input,
-    )
+    # Flush headers before the workflow starts, and keep health checks responsive
+    # while synchronous model/backend calls are running.
+    yield ": connected\n\n"
+    try:
+        result = await run_in_threadpool(
+            chat,
+            session_id=session_id,
+            customer_id=customer_id,
+            user_input=user_input,
+        )
+    except Exception:
+        logger.exception("session=%s chat stream failed", session_id)
+        frame = json.dumps({
+            "type": "error",
+            "message": "The AI assistant could not finish your request. Please try again shortly.",
+        })
+        yield f"data: {frame}\n\n"
+        return
 
     response_text = result.get("response") or ""
 
@@ -112,6 +127,7 @@ async def chat_stream_api(request: ChatRequest):
     return StreamingResponse(
         _stream_chat_response(session_id, request.customer_id, request.message),
         media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
