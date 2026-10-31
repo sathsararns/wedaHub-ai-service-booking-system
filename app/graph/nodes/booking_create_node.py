@@ -125,7 +125,9 @@ def booking_create_node(state):
         "provider_name": booking.get("provider_name"),
         "service": _clean_text(booking.get("service")),
         "city": _clean_text(booking.get("city")),
-        "date": _clean_text(booking.get("date")),
+        # Express resolves natural-language dates. Return the actual saved date
+        # to the card rather than asking the browser to parse "November 2".
+        "date": _clean_text(created_booking.get("date")) or _clean_text(booking.get("date")),
         "description": _clean_text(booking.get("description")),
         "booking_id": booking_id,
         "status": status,

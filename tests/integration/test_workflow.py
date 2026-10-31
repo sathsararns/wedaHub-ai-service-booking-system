@@ -33,7 +33,33 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(result["booking_confirmed"])
         self.assertTrue(result["booking_created"])
         self.assertEqual(result["booking_result"]["booking_id"], "booking-1")
+        self.assertEqual(result["booking_result"]["date"], "Tomorrow")
         create.assert_called_once()
+
+    @patch("app.tools.bookings.backend_client.create_booking")
+    @patch("app.graph.nodes.booking_create_node.run_tool_agent")
+    def test_created_booking_card_uses_the_saved_date_instead_of_yearless_input(self, runner, create):
+        self.state["booking"]["date"] = "November 2"
+        self.state["requirements"]["date"] = "November 2"
+
+        def run_tools(session_id, system_prompt, human_prompt, tools):
+            tools[0].invoke({})
+            return ["create_booking"]
+
+        runner.side_effect = run_tools
+        for saved_date in ("2026-11-02T06:30:00.000Z", "2027-11-02T06:30:00.000Z"):
+            for nested in (True, False):
+                with self.subTest(saved_date=saved_date, nested=nested):
+                    saved = {"_id": "booking-1", "status": "pending", "date": saved_date}
+                    create.return_value = {"booking": saved} if nested else saved
+                    create.reset_mock()
+                    result = graph.invoke(deepcopy(self.state))
+                    self.assertTrue(result["booking_created"])
+                    for key in ("booking", "booking_result", "booking_card", "created_booking"):
+                        self.assertEqual(result[key]["date"], saved_date)
+                    self.assertIn(f"Date : {saved_date}", result["response"])
+                    create.assert_called_once()
+                    self.assertEqual(create.call_args.kwargs["date"], "November 2")
 
     @patch("app.tools.bookings.backend_client.create_booking")
     @patch("app.graph.nodes.booking_create_node.run_tool_agent")
